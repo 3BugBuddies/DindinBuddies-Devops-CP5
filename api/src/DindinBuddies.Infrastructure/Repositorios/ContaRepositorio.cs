@@ -17,6 +17,9 @@ public class ContaRepositorio(DindinBuddiesDbContext contexto) : IContaRepositor
     public Task<Conta?> ObterPorIdAsync(int id, CancellationToken ct = default) =>
         contexto.Contas.FirstOrDefaultAsync(c => c.Id == id, ct);
 
+    public Task<Conta?> ObterPorNumeroAsync(string agencia, string numeroConta, CancellationToken ct = default) =>
+        contexto.Contas.AsNoTracking().FirstOrDefaultAsync(c => c.Agencia == agencia && c.NumeroConta == numeroConta, ct);
+
     // NumeroConta tem largura fixa (000001), então o maior texto é também o maior número.
     public Task<string?> ObterMaiorNumeroAsync(string agencia, CancellationToken ct = default) =>
         contexto.Contas

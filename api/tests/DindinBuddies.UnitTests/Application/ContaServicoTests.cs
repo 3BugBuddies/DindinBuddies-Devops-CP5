@@ -115,6 +115,23 @@ public class ContaServicoTests
     }
 
     [Fact]
+    public async Task ObterPorNumeroAsync_NumeroSemZerosAEsquerda_CompletaPara6DigitosEEncontra()
+    {
+        _contas.ObterPorNumeroAsync("0001", "000042", Arg.Any<CancellationToken>()).Returns(Entidades.Conta(id: 42));
+
+        var conta = await _servico.ObterPorNumeroAsync("0001", "42");
+
+        Assert.Equal(42, conta.Id);
+        Assert.Equal("000042", conta.NumeroConta);
+    }
+
+    [Fact]
+    public async Task ObterPorNumeroAsync_ContaInexistente_LancaRecursoNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<RecursoNaoEncontradoException>(() => _servico.ObterPorNumeroAsync("0001", "999999"));
+    }
+
+    [Fact]
     public async Task ObterAsync_ContaInexistente_LancaRecursoNaoEncontrado()
     {
         await Assert.ThrowsAsync<RecursoNaoEncontradoException>(() => _servico.ObterAsync(99));

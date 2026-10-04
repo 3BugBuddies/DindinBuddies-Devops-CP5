@@ -24,6 +24,18 @@ public class ContaServico(IClienteRepositorio clientes, IContaRepositorio contas
     public async Task<ContaResponse> ObterAsync(int id, CancellationToken ct = default) =>
         ContaResponse.De(await ObterEntidadeAsync(id, ct));
 
+    /// <summary>
+    /// Busca pela agência e pelo número que o usuário conhece (usado para achar o destino de uma transferência).
+    /// Números digitados sem os zeros à esquerda (ex.: 42) são completados para 6 dígitos (000042).
+    /// </summary>
+    public async Task<ContaResponse> ObterPorNumeroAsync(string agencia, string numeroConta, CancellationToken ct = default)
+    {
+        var numero = numeroConta.Trim().PadLeft(6, '0');
+        var conta = await contas.ObterPorNumeroAsync(agencia.Trim(), numero, ct)
+            ?? throw new RecursoNaoEncontradoException($"Conta {agencia}/{numero} não encontrada.");
+        return ContaResponse.De(conta);
+    }
+
     public async Task<ContaResponse> AbrirAsync(int clienteId, AbrirContaRequest request, CancellationToken ct = default)
     {
         await GarantirClienteExisteAsync(clienteId, ct);
