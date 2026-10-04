@@ -64,6 +64,57 @@ Um **Cliente** tem várias **Contas**; uma **Conta** tem várias **Transações*
 - O saldo fica gravado na conta e muda na mesma transação do banco que registra a movimentação.
 - Datas são gravadas em UTC; o front mostra no horário local.
 
+### Endpoints da API
+
+Todos ficam sob `/api` e trocam JSON. Os enums trafegam como texto (`"Corrente"`, `"Poupanca"`, `"Deposito"`...). O Swagger (`/swagger`) documenta e permite testar cada um.
+
+**Clientes**
+
+| Método | Rota | Descrição | Respostas |
+| --- | --- | --- | --- |
+| GET | `/api/clientes?busca=` | Lista os clientes; `busca` (opcional) filtra por nome ou CPF | 200 |
+| GET | `/api/clientes/{id}` | Busca um cliente | 200, 404 |
+| POST | `/api/clientes` | Cadastra um cliente | 201, 400, 422 |
+| PUT | `/api/clientes/{id}` | Edita nome, e-mail, telefone e nascimento (o CPF não muda) | 200, 400, 404, 422 |
+| DELETE | `/api/clientes/{id}` | Exclui o cliente, só se ele não tiver contas | 204, 404, 422 |
+
+**Contas**
+
+| Método | Rota | Descrição | Respostas |
+| --- | --- | --- | --- |
+| GET | `/api/clientes/{id}/contas` | Lista as contas do cliente | 200, 404 |
+| POST | `/api/clientes/{id}/contas` | Abre uma conta; agência (`0001`) e número sequencial são gerados pela API | 201, 400, 404 |
+| GET | `/api/contas/{id}` | Busca uma conta | 200, 404 |
+| GET | `/api/contas/busca?agencia=&numero=` | Busca pela agência e pelo número (ex.: `numero=42` encontra `000042`) | 200, 400, 404 |
+| POST | `/api/contas/{id}/encerrar` | Encerra a conta, só com saldo zero | 200, 404, 422 |
+
+**Movimentações**
+
+| Método | Rota | Descrição | Respostas |
+| --- | --- | --- | --- |
+| POST | `/api/contas/{id}/depositos` | Deposita na conta | 200, 400, 404, 422 |
+| POST | `/api/contas/{id}/saques` | Saca da conta | 200, 400, 404, 422 |
+| POST | `/api/contas/{id}/transferencias` | Transfere para outra conta, em uma única transação do banco | 200, 400, 404, 422 |
+| GET | `/api/contas/{id}/extrato?inicio=&fim=` | Extrato do período (datas em UTC, ISO 8601); sem datas, os últimos 30 dias | 200, 404, 422 |
+
+Exemplos de corpo das requisições:
+
+```jsonc
+// POST /api/clientes
+{ "nome": "Ana Souza", "cpf": "12345678901", "email": "ana@email.com", "telefone": "11 99999-0000", "dataNascimento": "1990-05-20" }
+
+// POST /api/clientes/1/contas
+{ "tipoConta": "Corrente" }
+
+// POST /api/contas/1/depositos  (e /saques)
+{ "valor": 150.75, "descricao": "Salário" }
+
+// POST /api/contas/1/transferencias
+{ "contaDestinoId": 2, "valor": 50, "descricao": "Almoço" }
+```
+
+As movimentações respondem com a transação criada e o `saldoAtual` da conta. No extrato, cada item traz o `sentido` (`Entrada` ou `Saida`) em relação à conta consultada.
+
 ### Principais regras
 
 | Regra | Resposta da API |
