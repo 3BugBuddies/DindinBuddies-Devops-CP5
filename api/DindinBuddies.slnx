@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/DindinBuddies.Api/DindinBuddies.Api.csproj" />
+    <Project Path="src/DindinBuddies.Application/DindinBuddies.Application.csproj" />
+    <Project Path="src/DindinBuddies.Domain/DindinBuddies.Domain.csproj" />
+    <Project Path="src/DindinBuddies.Infrastructure/DindinBuddies.Infrastructure.csproj" />
+  </Folder>
+</Solution>
