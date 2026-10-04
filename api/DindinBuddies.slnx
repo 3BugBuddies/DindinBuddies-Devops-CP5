@@ -5,4 +5,7 @@
     <Project Path="src/DindinBuddies.Domain/DindinBuddies.Domain.csproj" />
     <Project Path="src/DindinBuddies.Infrastructure/DindinBuddies.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DindinBuddies.UnitTests/DindinBuddies.UnitTests.csproj" />
+  </Folder>
 </Solution>
