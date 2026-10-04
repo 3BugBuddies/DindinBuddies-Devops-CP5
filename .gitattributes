@@ -1,0 +1,2 @@
+# Fim de linha LF em todo o repositório (scripts Bash quebram com CRLF fora do Windows).
+* text=auto eol=lf

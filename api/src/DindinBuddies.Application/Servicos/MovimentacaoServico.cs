@@ -49,8 +49,8 @@ public class MovimentacaoServico(
     {
         var conta = await ObterContaAsync(contaId, ct);
 
-        var fimPeriodo = fim ?? DateTime.UtcNow;
-        var inicioPeriodo = inicio ?? fimPeriodo.AddDays(-DiasPadraoDoExtrato);
+        var fimPeriodo = fim is null ? DateTime.UtcNow : ParaUtc(fim.Value);
+        var inicioPeriodo = inicio is null ? fimPeriodo.AddDays(-DiasPadraoDoExtrato) : ParaUtc(inicio.Value);
         if (inicioPeriodo > fimPeriodo)
             throw new RegraDeNegocioException("A data de início deve ser anterior à data de fim.");
 
@@ -67,6 +67,17 @@ public class MovimentacaoServico(
 
         return new ExtratoResponse(conta.Id, conta.Saldo, inicioPeriodo, fimPeriodo, itens);
     }
+
+    /// <summary>
+    /// O ASP.NET converte datas com "Z" para o fuso do servidor (Kind = Local); voltamos para UTC.
+    /// Datas sem fuso (Kind = Unspecified) são tratadas como UTC, que é o padrão da API.
+    /// </summary>
+    private static DateTime ParaUtc(DateTime data) => data.Kind switch
+    {
+        DateTimeKind.Local => data.ToUniversalTime(),
+        DateTimeKind.Unspecified => DateTime.SpecifyKind(data, DateTimeKind.Utc),
+        _ => data
+    };
 
     private static SentidoMovimentacao SentidoPara(Transacao t, int contaId) => t.Tipo switch
     {

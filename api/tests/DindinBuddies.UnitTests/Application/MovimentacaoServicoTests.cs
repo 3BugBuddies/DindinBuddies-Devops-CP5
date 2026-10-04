@@ -146,6 +146,22 @@ public class MovimentacaoServicoTests
     }
 
     [Fact]
+    public async Task ObterExtratoAsync_DatasLocaisOuSemFuso_ConsultaEmUtc()
+    {
+        ContaCadastrada(5);
+        var inicioUtc = new DateTime(2026, 1, 1, 3, 0, 0, DateTimeKind.Utc);
+        var inicioLocal = inicioUtc.ToLocalTime();
+        var fimSemFuso = new DateTime(2026, 1, 31, 23, 59, 59, DateTimeKind.Unspecified);
+
+        var extrato = await _servico.ObterExtratoAsync(5, inicioLocal, fimSemFuso);
+
+        Assert.Equal(inicioUtc, extrato.Inicio);
+        Assert.Equal(DateTimeKind.Utc, extrato.Inicio.Kind);
+        Assert.Equal(new DateTime(2026, 1, 31, 23, 59, 59, DateTimeKind.Utc), extrato.Fim);
+        Assert.Equal(DateTimeKind.Utc, extrato.Fim.Kind);
+    }
+
+    [Fact]
     public async Task ObterExtratoAsync_InicioDepoisDoFim_LancaRegraDeNegocio()
     {
         ContaCadastrada(5);
