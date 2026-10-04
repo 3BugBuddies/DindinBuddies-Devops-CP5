@@ -30,4 +30,24 @@ public class ContasController(ContaServico contas) : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
     public Task<ContaResponse> Encerrar(int id, CancellationToken ct) =>
         contas.EncerrarAsync(id, ct);
+
+    /// <summary>Altera o tipo da conta (Corrente ou Poupança). Agência, número e saldo não mudam.</summary>
+    [HttpPut("{id:int}")]
+    [ProducesResponseType<ContaResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public Task<ContaResponse> Alterar(int id, AlterarContaRequest request, CancellationToken ct) =>
+        contas.AlterarAsync(id, request, ct);
+
+    /// <summary>Exclui a conta. Só é permitido se ela não tiver movimentações; caso contrário, encerre a conta.</summary>
+    [HttpDelete("{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> Excluir(int id, CancellationToken ct)
+    {
+        await contas.ExcluirAsync(id, ct);
+        return NoContent();
+    }
 }

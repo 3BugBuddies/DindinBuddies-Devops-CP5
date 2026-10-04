@@ -60,7 +60,8 @@ DindinBuddies/
 
 Um **Cliente** tem várias **Contas**; uma **Conta** tem várias **Transações**. Uma transferência é um único registro, com a conta de origem (`ContaId`) e a de destino (`ContaDestinoId`).
 
-- Nada é apagado em cascata. Conta encerrada vira `Ativa = 0`, e o histórico é mantido.
+- Nada é apagado em cascata. Conta encerrada vira `Ativa = 0` e mantém o histórico; só contas sem movimentações podem ser excluídas.
+- Excluir uma transação é um estorno: o saldo das contas envolvidas volta ao que era antes.
 - O saldo fica gravado na conta e muda na mesma transação do banco que registra a movimentação.
 - Datas são gravadas em UTC; o front mostra no horário local.
 
@@ -86,7 +87,9 @@ Todos ficam sob `/api` e trocam JSON. Os enums trafegam como texto (`"Corrente"`
 | POST | `/api/clientes/{id}/contas` | Abre uma conta; agência (`0001`) e número sequencial são gerados pela API | 201, 400, 404 |
 | GET | `/api/contas/{id}` | Busca uma conta | 200, 404 |
 | GET | `/api/contas/busca?agencia=&numero=` | Busca pela agência e pelo número (ex.: `numero=42` encontra `000042`) | 200, 400, 404 |
+| PUT | `/api/contas/{id}` | Altera o tipo da conta (agência, número e saldo não mudam) | 200, 400, 404, 422 |
 | POST | `/api/contas/{id}/encerrar` | Encerra a conta, só com saldo zero | 200, 404, 422 |
+| DELETE | `/api/contas/{id}` | Exclui a conta, só se ela não tiver movimentações (senão, encerre) | 204, 404, 422 |
 
 **Movimentações**
 
@@ -96,6 +99,16 @@ Todos ficam sob `/api` e trocam JSON. Os enums trafegam como texto (`"Corrente"`
 | POST | `/api/contas/{id}/saques` | Saca da conta | 200, 400, 404, 422 |
 | POST | `/api/contas/{id}/transferencias` | Transfere para outra conta, em uma única transação do banco | 200, 400, 404, 422 |
 | GET | `/api/contas/{id}/extrato?inicio=&fim=` | Extrato do período (datas em UTC, ISO 8601); sem datas, os últimos 30 dias | 200, 404, 422 |
+
+**Transações**
+
+| Método | Rota | Descrição | Respostas |
+| --- | --- | --- | --- |
+| GET | `/api/transacoes/{id}` | Busca uma transação | 200, 404 |
+| PUT | `/api/transacoes/{id}` | Edita a descrição (valor, tipo e contas não mudam) | 200, 400, 404 |
+| DELETE | `/api/transacoes/{id}` | Exclui com **estorno**: desfaz o efeito no saldo das contas envolvidas | 204, 404, 422 |
+
+As transações são criadas pelas movimentações acima (depósito, saque e transferência).
 
 Exemplos de corpo das requisições:
 
@@ -123,6 +136,8 @@ As movimentações respondem com a transação criada e o `saldoAtual` da conta.
 | Movimentação em conta encerrada | 422 |
 | Encerrar conta com saldo diferente de zero | 422 |
 | Excluir cliente que tem contas | 422 |
+| Excluir conta que tem movimentações | 422 |
+| Estorno que deixaria saldo negativo ou envolve conta encerrada | 422 |
 | CPF ou e-mail já cadastrado | 422 |
 | Dados inválidos (campos obrigatórios, CPF com 11 dígitos...) | 400 |
 | Id inexistente | 404 |

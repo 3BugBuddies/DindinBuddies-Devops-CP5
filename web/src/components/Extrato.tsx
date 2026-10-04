@@ -1,7 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Undo2 } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
-import { obterExtrato } from '@/api/contas'
+import { toast } from 'sonner'
+import { excluirTransacao, obterExtrato } from '@/api/contas'
 import type { ExtratoItem } from '@/api/tipos'
+import { ConfirmarAcao } from '@/components/ConfirmarAcao'
+import { DialogEditarDescricao } from '@/components/DialogEditarDescricao'
 import { ErroFormulario } from '@/components/ErroFormulario'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -26,6 +30,7 @@ function descreverTipo(item: ExtratoItem): string {
 
 /** Extrato por período (datas locais, convertidas para UTC na consulta). */
 export function Extrato({ contaId }: { contaId: number }) {
+  const queryClient = useQueryClient()
   const [periodo, setPeriodo] = useState({ de: dataLocalIso(-DIAS_PADRAO), ate: dataLocalIso() })
 
   const extrato = useQuery({
@@ -74,6 +79,9 @@ export function Extrato({ contaId }: { contaId: number }) {
                 <TableHead>Data</TableHead>
                 <TableHead>Movimentação</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="w-20">
+                  <span className="sr-only">Ações</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -94,6 +102,29 @@ export function Extrato({ contaId }: { contaId: number }) {
                     >
                       {entrada ? '+ ' : '− '}
                       {formatarMoeda(item.valor)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        <DialogEditarDescricao item={item} />
+                        <ConfirmarAcao
+                          gatilho={
+                            <Button variant="ghost" size="icon" aria-label="Estornar transação">
+                              <Undo2 />
+                            </Button>
+                          }
+                          titulo="Estornar transação?"
+                          descricao={`${descreverTipo(item)} de ${formatarMoeda(item.valor)}. O saldo das contas envolvidas volta ao que era antes, e a transação é excluída.`}
+                          rotuloConfirmar="Estornar"
+                          acao={() => excluirTransacao(item.transacaoId)}
+                          aoConcluir={() => {
+                            // O estorno pode mudar o saldo de duas contas (transferência).
+                            queryClient.invalidateQueries({ queryKey: ['conta'] })
+                            queryClient.invalidateQueries({ queryKey: ['extrato'] })
+                            queryClient.invalidateQueries({ queryKey: ['contas-cliente'] })
+                            toast.success('Transação estornada.')
+                          }}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 )

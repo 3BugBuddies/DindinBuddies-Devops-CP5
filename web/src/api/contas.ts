@@ -4,6 +4,8 @@ import type {
   Extrato,
   MovimentacaoRequest,
   MovimentacaoResponse,
+  TipoConta,
+  Transacao,
   TransferenciaRequest,
 } from './tipos'
 
@@ -20,6 +22,25 @@ export async function buscarContaPorNumero(numero: string): Promise<Conta> {
     params: { agencia: AGENCIA_PADRAO, numero },
   })
   return data
+}
+
+export async function alterarConta(id: number, tipoConta: TipoConta): Promise<Conta> {
+  const { data } = await http.put<Conta>(`/api/contas/${id}`, { tipoConta })
+  return data
+}
+
+export async function excluirConta(id: number): Promise<void> {
+  await http.delete(`/api/contas/${id}`)
+}
+
+export async function editarTransacao(id: number, descricao: string | null): Promise<Transacao> {
+  const { data } = await http.put<Transacao>(`/api/transacoes/${id}`, { descricao })
+  return data
+}
+
+/** Exclui a transação com estorno: a API desfaz o efeito no saldo. */
+export async function excluirTransacao(id: number): Promise<void> {
+  await http.delete(`/api/transacoes/${id}`)
 }
 
 export async function encerrarConta(id: number): Promise<Conta> {

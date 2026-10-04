@@ -111,6 +111,58 @@ public class MovimentacaoServicoTests
     }
 
     [Fact]
+    public async Task EditarTransacaoAsync_TrocaSoADescricaoESalva()
+    {
+        var conta = Entidades.Conta(id: 1, saldo: 100);
+        var transacao = conta.Sacar(30, "Antiga");
+        _transacoes.ObterPorIdAsync(10, Arg.Any<CancellationToken>()).Returns(transacao);
+
+        var resposta = await _servico.EditarTransacaoAsync(10, new EditarTransacaoRequest { Descricao = " Nova " });
+
+        Assert.Equal("Nova", resposta.Descricao);
+        Assert.Equal(30m, resposta.Valor);
+        Assert.Equal(70m, conta.Saldo);
+        await _unidadeDeTrabalho.Received(1).SalvarAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExcluirTransacaoAsync_Transferencia_EstornaAsDuasContasRemoveESalvaUmaVez()
+    {
+        var origem = Entidades.Conta(id: 1, saldo: 100);
+        var destino = Entidades.Conta(id: 2);
+        var transacao = origem.TransferirPara(destino, 40);
+        _transacoes.ObterPorIdAsync(10, Arg.Any<CancellationToken>()).Returns(transacao);
+
+        await _servico.ExcluirTransacaoAsync(10);
+
+        Assert.Equal(100m, origem.Saldo);
+        Assert.Equal(0m, destino.Saldo);
+        _transacoes.Received(1).Remover(transacao);
+        await _unidadeDeTrabalho.Received(1).SalvarAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExcluirTransacaoAsync_EstornoDeixariaSaldoNegativo_LancaRegraDeNegocioENaoRemove()
+    {
+        var conta = Entidades.Conta(id: 1);
+        var deposito = conta.Depositar(100);
+        conta.Sacar(80);
+        _transacoes.ObterPorIdAsync(10, Arg.Any<CancellationToken>()).Returns(deposito);
+
+        await Assert.ThrowsAsync<RegraDeNegocioException>(() => _servico.ExcluirTransacaoAsync(10));
+
+        Assert.Equal(20m, conta.Saldo);
+        _transacoes.DidNotReceiveWithAnyArgs().Remover(default!);
+        await _unidadeDeTrabalho.DidNotReceiveWithAnyArgs().SalvarAsync(default);
+    }
+
+    [Fact]
+    public async Task ObterTransacaoAsync_Inexistente_LancaRecursoNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<RecursoNaoEncontradoException>(() => _servico.ObterTransacaoAsync(99));
+    }
+
+    [Fact]
     public async Task ObterExtratoAsync_MarcaEntradasESaidasEmRelacaoAConta()
     {
         var conta = ContaCadastrada(5, saldo: 1000);

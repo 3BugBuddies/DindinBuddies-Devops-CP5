@@ -54,6 +54,16 @@ export interface MovimentacaoResponse {
   saldoAtual: number
 }
 
+export interface Transacao {
+  id: number
+  contaId: number
+  tipo: TipoTransacao
+  valor: number
+  dataHora: string
+  descricao: string | null
+  contaDestinoId: number | null
+}
+
 export interface ExtratoItem {
   transacaoId: number
   tipo: TipoTransacao

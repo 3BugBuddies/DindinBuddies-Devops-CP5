@@ -27,4 +27,6 @@ public class ContaRepositorio(DindinBuddiesDbContext contexto) : IContaRepositor
             .MaxAsync(c => (string?)c.NumeroConta, ct);
 
     public void Adicionar(Conta conta) => contexto.Contas.Add(conta);
+
+    public void Remover(Conta conta) => contexto.Contas.Remove(conta);
 }

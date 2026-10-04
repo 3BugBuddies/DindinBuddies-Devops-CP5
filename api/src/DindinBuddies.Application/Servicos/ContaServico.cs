@@ -3,10 +3,15 @@ using DindinBuddies.Application.Dtos.Contas;
 using DindinBuddies.Application.Excecoes;
 using DindinBuddies.Application.Interfaces;
 using DindinBuddies.Domain.Entidades;
+using DindinBuddies.Domain.Excecoes;
 
 namespace DindinBuddies.Application.Servicos;
 
-public class ContaServico(IClienteRepositorio clientes, IContaRepositorio contas, IUnidadeDeTrabalho unidadeDeTrabalho)
+public class ContaServico(
+    IClienteRepositorio clientes,
+    IContaRepositorio contas,
+    ITransacaoRepositorio transacoes,
+    IUnidadeDeTrabalho unidadeDeTrabalho)
 {
     public const string AgenciaPadrao = "0001";
 
@@ -57,12 +62,35 @@ public class ContaServico(IClienteRepositorio clientes, IContaRepositorio contas
         }
     }
 
+    public async Task<ContaResponse> AlterarAsync(int id, AlterarContaRequest request, CancellationToken ct = default)
+    {
+        var conta = await ObterEntidadeAsync(id, ct);
+        conta.AlterarTipo(request.TipoConta!.Value);
+        await unidadeDeTrabalho.SalvarAsync(ct);
+        return ContaResponse.De(conta);
+    }
+
     public async Task<ContaResponse> EncerrarAsync(int id, CancellationToken ct = default)
     {
         var conta = await ObterEntidadeAsync(id, ct);
         conta.Encerrar();
         await unidadeDeTrabalho.SalvarAsync(ct);
         return ContaResponse.De(conta);
+    }
+
+    /// <summary>
+    /// Exclui a conta. Só é permitido sem movimentações (e, portanto, com saldo zero);
+    /// conta com histórico deve ser encerrada.
+    /// </summary>
+    public async Task ExcluirAsync(int id, CancellationToken ct = default)
+    {
+        var conta = await ObterEntidadeAsync(id, ct);
+
+        if (await transacoes.ExisteParaContaAsync(id, ct))
+            throw new RegraDeNegocioException("A conta possui movimentações e não pode ser excluída. Encerre a conta.");
+
+        contas.Remover(conta);
+        await unidadeDeTrabalho.SalvarAsync(ct);
     }
 
     /// <summary>Número sequencial de 6 dígitos na agência padrão: 000001, 000002...</summary>

@@ -20,8 +20,7 @@ public class Conta
 
     public Conta(int clienteId, string agencia, string numeroConta, TipoConta tipoConta)
     {
-        if (!Enum.IsDefined(tipoConta))
-            throw new RegraDeNegocioException("Tipo de conta inválido.");
+        GarantirTipoValido(tipoConta);
 
         ClienteId = clienteId;
         Agencia = agencia;
@@ -67,6 +66,13 @@ public class Conta
         return Transacao.Transferencia(this, destino, valor, descricao);
     }
 
+    public void AlterarTipo(TipoConta tipoConta)
+    {
+        GarantirAtiva();
+        GarantirTipoValido(tipoConta);
+        TipoConta = tipoConta;
+    }
+
     /// <summary>
     /// Encerra a conta. Só é permitido com saldo zero, para o dinheiro não ficar preso.
     /// </summary>
@@ -79,10 +85,29 @@ public class Conta
         Ativa = false;
     }
 
-    private void GarantirAtiva()
+    // Usados pelo estorno (Transacao.Estornar), que valida as duas contas antes de alterar os saldos.
+    internal void GarantirPodeEstornarCredito(decimal valor)
+    {
+        GarantirAtiva();
+        if (valor > Saldo)
+            throw new RegraDeNegocioException(
+                $"Estorno recusado: a conta {NumeroConta} não tem saldo suficiente para devolver o valor.");
+    }
+
+    internal void EstornarCredito(decimal valor) => Saldo -= valor;
+
+    internal void EstornarDebito(decimal valor) => Saldo += valor;
+
+    internal void GarantirAtiva()
     {
         if (!Ativa)
             throw new RegraDeNegocioException("A conta está encerrada.");
+    }
+
+    private static void GarantirTipoValido(TipoConta tipoConta)
+    {
+        if (!Enum.IsDefined(tipoConta))
+            throw new RegraDeNegocioException("Tipo de conta inválido.");
     }
 
     private static void GarantirValorPositivo(decimal valor)

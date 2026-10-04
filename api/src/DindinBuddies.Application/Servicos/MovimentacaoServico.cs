@@ -68,6 +68,33 @@ public class MovimentacaoServico(
         return new ExtratoResponse(conta.Id, conta.Saldo, inicioPeriodo, fimPeriodo, itens);
     }
 
+    public async Task<TransacaoResponse> ObterTransacaoAsync(long id, CancellationToken ct = default) =>
+        TransacaoResponse.De(await ObterTransacaoEntidadeAsync(id, ct));
+
+    public async Task<TransacaoResponse> EditarTransacaoAsync(long id, EditarTransacaoRequest request, CancellationToken ct = default)
+    {
+        var transacao = await ObterTransacaoEntidadeAsync(id, ct);
+        transacao.AlterarDescricao(request.Descricao);
+        await unidadeDeTrabalho.SalvarAsync(ct);
+        return TransacaoResponse.De(transacao);
+    }
+
+    /// <summary>
+    /// Exclui a transação desfazendo o efeito no saldo (estorno). Saldos e remoção são gravados
+    /// em um único SalvarAsync: ou tudo é gravado, ou nada é.
+    /// </summary>
+    public async Task ExcluirTransacaoAsync(long id, CancellationToken ct = default)
+    {
+        var transacao = await ObterTransacaoEntidadeAsync(id, ct);
+        transacao.Estornar();
+        transacoes.Remover(transacao);
+        await unidadeDeTrabalho.SalvarAsync(ct);
+    }
+
+    private async Task<Transacao> ObterTransacaoEntidadeAsync(long id, CancellationToken ct) =>
+        await transacoes.ObterPorIdAsync(id, ct)
+        ?? throw new RecursoNaoEncontradoException($"Transação {id} não encontrada.");
+
     /// <summary>
     /// O ASP.NET converte datas com "Z" para o fuso do servidor (Kind = Local); voltamos para UTC.
     /// Datas sem fuso (Kind = Unspecified) são tratadas como UTC, que é o padrão da API.

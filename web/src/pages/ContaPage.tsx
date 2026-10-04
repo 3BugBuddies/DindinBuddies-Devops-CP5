@@ -1,10 +1,11 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Lock } from 'lucide-react'
-import { Link, useParams } from 'react-router'
+import { ArrowLeft, Lock, Trash2 } from 'lucide-react'
+import { Link, useNavigate, useParams } from 'react-router'
 import { toast } from 'sonner'
 import { obterCliente } from '@/api/clientes'
-import { encerrarConta, obterConta } from '@/api/contas'
+import { encerrarConta, excluirConta, obterConta } from '@/api/contas'
 import { ConfirmarAcao } from '@/components/ConfirmarAcao'
+import { DialogAlterarTipoConta } from '@/components/DialogAlterarTipoConta'
 import { ErroFormulario } from '@/components/ErroFormulario'
 import { Extrato } from '@/components/Extrato'
 import { PainelMovimentacoes } from '@/components/PainelMovimentacoes'
@@ -15,6 +16,7 @@ import { formatarMoeda, formatarTipoConta } from '@/lib/formatacao'
 
 export function ContaPage() {
   const id = Number(useParams().id)
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
 
   const conta = useQuery({ queryKey: ['conta', id], queryFn: () => obterConta(id) })
@@ -46,26 +48,46 @@ export function ContaPage() {
             <Badge variant={c.ativa ? 'secondary' : 'outline'}>{c.ativa ? 'Ativa' : 'Encerrada'}</Badge>
           </CardDescription>
           <CardTitle className="text-sm font-normal text-muted-foreground">Saldo disponível</CardTitle>
-          {c.ativa && (
-            <CardAction>
-              <ConfirmarAcao
-                gatilho={
-                  <Button variant="destructive">
-                    <Lock /> Encerrar conta
-                  </Button>
-                }
-                titulo="Encerrar conta?"
-                descricao="A conta deixa de aceitar movimentações e o histórico é mantido. Só é possível encerrar com saldo zero."
-                rotuloConfirmar="Encerrar"
-                acao={() => encerrarConta(id)}
-                aoConcluir={() => {
-                  queryClient.invalidateQueries({ queryKey: ['conta', id] })
-                  queryClient.invalidateQueries({ queryKey: ['contas-cliente', c.clienteId] })
-                  toast.success('Conta encerrada.')
-                }}
-              />
-            </CardAction>
-          )}
+          <CardAction className="flex flex-wrap justify-end gap-2">
+            {c.ativa && (
+              <>
+                <DialogAlterarTipoConta conta={c} />
+                <ConfirmarAcao
+                  gatilho={
+                    <Button variant="destructive">
+                      <Lock /> Encerrar conta
+                    </Button>
+                  }
+                  titulo="Encerrar conta?"
+                  descricao="A conta deixa de aceitar movimentações e o histórico é mantido. Só é possível encerrar com saldo zero."
+                  rotuloConfirmar="Encerrar"
+                  acao={() => encerrarConta(id)}
+                  aoConcluir={() => {
+                    queryClient.invalidateQueries({ queryKey: ['conta', id] })
+                    queryClient.invalidateQueries({ queryKey: ['contas-cliente', c.clienteId] })
+                    toast.success('Conta encerrada.')
+                  }}
+                />
+              </>
+            )}
+            <ConfirmarAcao
+              gatilho={
+                <Button variant="destructive">
+                  <Trash2 /> Excluir conta
+                </Button>
+              }
+              titulo="Excluir conta?"
+              descricao="A conta será removida. Só é possível excluir contas sem movimentações; contas com histórico devem ser encerradas."
+              rotuloConfirmar="Excluir"
+              acao={() => excluirConta(id)}
+              aoConcluir={() => {
+                queryClient.removeQueries({ queryKey: ['conta', id] })
+                queryClient.invalidateQueries({ queryKey: ['contas-cliente', c.clienteId] })
+                toast.success('Conta excluída.')
+                navigate(`/clientes/${c.clienteId}`)
+              }}
+            />
+          </CardAction>
         </CardHeader>
         <CardContent>
           <p className="text-4xl font-semibold tracking-tight">{formatarMoeda(c.saldo)}</p>

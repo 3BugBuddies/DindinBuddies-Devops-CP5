@@ -33,6 +33,42 @@ public class Transacao
         ContaDestinoId = contaDestino?.Id;
     }
 
+    /// <summary>Só a descrição é editável; valor, tipo e contas não mudam, para o saldo continuar batendo.</summary>
+    public void AlterarDescricao(string? descricao)
+    {
+        Descricao = string.IsNullOrWhiteSpace(descricao) ? null : descricao.Trim();
+    }
+
+    /// <summary>
+    /// Desfaz o efeito da transação no saldo, antes de ela ser excluída.
+    /// Exige <see cref="Conta"/> (e <see cref="ContaDestino"/>, na transferência) carregadas.
+    /// Valida tudo antes de alterar qualquer saldo.
+    /// </summary>
+    public void Estornar()
+    {
+        switch (Tipo)
+        {
+            case TipoTransacao.Deposito:
+                Conta.GarantirPodeEstornarCredito(Valor);
+                Conta.EstornarCredito(Valor);
+                break;
+
+            case TipoTransacao.Saque:
+                Conta.GarantirAtiva();
+                Conta.EstornarDebito(Valor);
+                break;
+
+            case TipoTransacao.Transferencia:
+                var destino = ContaDestino
+                    ?? throw new InvalidOperationException("A conta de destino da transferência não foi carregada.");
+                Conta.GarantirAtiva();
+                destino.GarantirPodeEstornarCredito(Valor);
+                Conta.EstornarDebito(Valor);
+                destino.EstornarCredito(Valor);
+                break;
+        }
+    }
+
     internal static Transacao Deposito(Conta conta, decimal valor, string? descricao) =>
         new(conta, TipoTransacao.Deposito, valor, descricao);
 

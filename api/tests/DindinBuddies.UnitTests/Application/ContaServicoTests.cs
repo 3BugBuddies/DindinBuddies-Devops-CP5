@@ -14,6 +14,7 @@ public class ContaServicoTests
 {
     private readonly IClienteRepositorio _clientes = Substitute.For<IClienteRepositorio>();
     private readonly IContaRepositorio _contas = Substitute.For<IContaRepositorio>();
+    private readonly ITransacaoRepositorio _transacoes = Substitute.For<ITransacaoRepositorio>();
     private readonly IUnidadeDeTrabalho _unidadeDeTrabalho = Substitute.For<IUnidadeDeTrabalho>();
     private readonly ContaServico _servico;
 
@@ -21,7 +22,7 @@ public class ContaServicoTests
 
     public ContaServicoTests()
     {
-        _servico = new ContaServico(_clientes, _contas, _unidadeDeTrabalho);
+        _servico = new ContaServico(_clientes, _contas, _transacoes, _unidadeDeTrabalho);
         _clientes.ObterPorIdAsync(1, Arg.Any<CancellationToken>()).Returns(Entidades.Cliente(id: 1));
     }
 
@@ -112,6 +113,54 @@ public class ContaServicoTests
         await Assert.ThrowsAsync<RegraDeNegocioException>(() => _servico.EncerrarAsync(7));
 
         await _unidadeDeTrabalho.DidNotReceiveWithAnyArgs().SalvarAsync(default);
+    }
+
+    [Fact]
+    public async Task AlterarAsync_ContaAtiva_TrocaTipoESalva()
+    {
+        _contas.ObterPorIdAsync(7, Arg.Any<CancellationToken>()).Returns(Entidades.Conta(id: 7));
+
+        var resposta = await _servico.AlterarAsync(7, new AlterarContaRequest { TipoConta = TipoConta.Poupanca });
+
+        Assert.Equal(TipoConta.Poupanca, resposta.TipoConta);
+        await _unidadeDeTrabalho.Received(1).SalvarAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AlterarAsync_ContaInexistente_LancaRecursoNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<RecursoNaoEncontradoException>(
+            () => _servico.AlterarAsync(99, new AlterarContaRequest { TipoConta = TipoConta.Poupanca }));
+    }
+
+    [Fact]
+    public async Task ExcluirAsync_ContaSemMovimentacoes_RemoveESalva()
+    {
+        var conta = Entidades.Conta(id: 7);
+        _contas.ObterPorIdAsync(7, Arg.Any<CancellationToken>()).Returns(conta);
+
+        await _servico.ExcluirAsync(7);
+
+        _contas.Received(1).Remover(conta);
+        await _unidadeDeTrabalho.Received(1).SalvarAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExcluirAsync_ContaComMovimentacoes_LancaRegraDeNegocioENaoRemove()
+    {
+        _contas.ObterPorIdAsync(7, Arg.Any<CancellationToken>()).Returns(Entidades.Conta(id: 7));
+        _transacoes.ExisteParaContaAsync(7, Arg.Any<CancellationToken>()).Returns(true);
+
+        await Assert.ThrowsAsync<RegraDeNegocioException>(() => _servico.ExcluirAsync(7));
+
+        _contas.DidNotReceiveWithAnyArgs().Remover(default!);
+        await _unidadeDeTrabalho.DidNotReceiveWithAnyArgs().SalvarAsync(default);
+    }
+
+    [Fact]
+    public async Task ExcluirAsync_ContaInexistente_LancaRecursoNaoEncontrado()
+    {
+        await Assert.ThrowsAsync<RecursoNaoEncontradoException>(() => _servico.ExcluirAsync(99));
     }
 
     [Fact]

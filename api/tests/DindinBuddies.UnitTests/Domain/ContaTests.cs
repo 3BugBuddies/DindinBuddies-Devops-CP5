@@ -183,6 +183,31 @@ public class ContaTests
     }
 
     [Fact]
+    public void AlterarTipo_ContaAtiva_TrocaOTipo()
+    {
+        var conta = NovaConta();
+
+        conta.AlterarTipo(TipoConta.Poupanca);
+
+        Assert.Equal(TipoConta.Poupanca, conta.TipoConta);
+    }
+
+    [Fact]
+    public void AlterarTipo_TipoInvalido_LancaRegraDeNegocio()
+    {
+        Assert.Throws<RegraDeNegocioException>(() => NovaConta().AlterarTipo((TipoConta)99));
+    }
+
+    [Fact]
+    public void AlterarTipo_ContaEncerrada_LancaRegraDeNegocio()
+    {
+        var conta = NovaConta();
+        conta.Encerrar();
+
+        Assert.Throws<RegraDeNegocioException>(() => conta.AlterarTipo(TipoConta.Poupanca));
+    }
+
+    [Fact]
     public void Encerrar_ComSaldoZero_DesativaConta()
     {
         var conta = NovaConta();

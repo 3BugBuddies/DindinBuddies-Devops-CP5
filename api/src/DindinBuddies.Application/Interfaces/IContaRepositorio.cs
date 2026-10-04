@@ -12,4 +12,5 @@ public interface IContaRepositorio
     Task<string?> ObterMaiorNumeroAsync(string agencia, CancellationToken ct = default);
 
     void Adicionar(Conta conta);
+    void Remover(Conta conta);
 }
