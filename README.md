@@ -2,7 +2,7 @@
 
 Banco digital de exemplo: cadastro de clientes, abertura de contas e movimentações (depósito, saque e transferência), com extrato por período.
 
-O projeto tem uma **API .NET 10**, um **front React** e um **script Bash** que cria todo o ambiente na **Azure**. Localmente, tudo sobe com **docker-compose**.
+O projeto tem uma **API .NET 10**, um **front React** e um **script Bash** que cria todo o ambiente na **Azure** e publica as aplicações com **Azure CLI + `az webapp deploy`**. Localmente, tudo sobe com **docker-compose**.
 
 ## Sumário
 
@@ -22,22 +22,21 @@ O projeto tem uma **API .NET 10**, um **front React** e um **script Bash** que c
 
 ```mermaid
 flowchart LR
-    U([Navegador]) -->|HTTPS| WEB[Web App do front<br/>nginx + React]
+    U([Navegador]) -->|HTTPS| WEB[Web App do front<br/>Node 24 + React]
     U -->|HTTPS| API[Web App da API<br/>.NET 10]
     API -->|EF Core| SQL[(Azure SQL<br/>Basic)]
     API -->|OpenTelemetry| AI[Application Insights]
     AI --> LOG[Log Analytics]
-    ACR[Container Registry] -.->|imagens| WEB
-    ACR -.->|imagens| API
+    DEV([deploy.sh<br/>Azure CLI]) -.->|az webapp deploy| WEB
+    DEV -.->|az webapp deploy| API
 ```
 
 | Recurso | Configuração |
 | --- | --- |
 | Azure SQL Database | Camada Basic. As tabelas são criadas pelas migrations do EF Core quando a API inicia. |
 | App Service Plan | B1 Linux, com Always On. Hospeda os 2 Web Apps. |
-| Web App da API | Container da API, com a connection string, o App Insights e o CORS configurados pelo script. |
-| Web App do front | Container nginx servindo o React. A URL da API é gravada no build. |
-| Container Registry | Camada Basic. Os Web Apps baixam as imagens com identidade gerenciada (AcrPull), sem senha. |
+| Web App da API | Runtime .NET 10 (`DOTNETCORE:10.0`). Recebe o pacote do `dotnet publish` via `az webapp deploy`, com a connection string, o App Insights e o CORS configurados pelo script. |
+| Web App do front | Runtime Node 24 (`NODE:24-lts`), servindo os arquivos do build do React com `pm2 serve --spa`. A URL da API é gravada no build. |
 | Application Insights + Log Analytics | Telemetria da API: requisições, falhas, tempo de resposta e queries ao banco. |
 
 ### Código
@@ -51,8 +50,8 @@ DindinBuddies/
 │  ├─ src/DindinBuddies.Api/             controllers, Swagger, CORS, App Insights
 │  └─ tests/DindinBuddies.UnitTests/     xUnit + NSubstitute
 ├─ web/                               front React + Vite + TypeScript
-├─ Scripts/deploy.sh                  criação do ambiente na Azure
-├─ docker-compose.yml                 ambiente local completo
+├─ scripts/deploy.sh                  criação do ambiente e deploy na Azure
+├─ docker-compose.yml                 ambiente local completo (Docker só é usado localmente)
 └─ .env.example                       modelo do .env local
 ```
 
@@ -150,13 +149,13 @@ Os erros seguem o formato **ProblemDetails**, com a mensagem em `detail` (ou em 
 
 | Para... | Você precisa de |
 | --- | --- |
-| Criar o ambiente na Azure | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) logado (`az login`) e um terminal Bash (Linux, macOS, WSL ou Git Bash no Windows) |
+| Criar o ambiente na Azure | [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) logado (`az login`), [.NET SDK 10](https://dotnet.microsoft.com/download), [Node.js 22+](https://nodejs.org) com npm, Python 3 ou o comando `zip` (para gerar os pacotes) e um terminal Bash (Linux, macOS, WSL ou Git Bash no Windows) |
 | Rodar localmente | [Docker Desktop](https://www.docker.com/products/docker-desktop/) (ou Docker Engine com o plugin compose) |
-| Desenvolver sem Docker (opcional) | .NET SDK 10 e Node.js 22 |
+| Desenvolver sem Docker (opcional) | .NET SDK 10 e Node.js 22+ |
 
 > **Mac com chip Apple (M1 ou superior):** a imagem do SQL Server só existe para amd64. No Docker Desktop, ative **Settings → General → Use Rosetta for x86_64/amd64 emulation**.
 
-> **Azure for Students:** essas assinaturas costumam bloquear o `az acr build`. O script detecta isso e gera as imagens com o **Docker local**; nesse caso, deixe o Docker em execução durante o deploy.
+> **Docker não é necessário para o deploy:** na Azure não há containers. O script gera os pacotes na sua máquina (`dotnet publish` e `npm run build`) e os publica com `az webapp deploy`.
 
 ---
 
@@ -203,7 +202,7 @@ Para rodar a API fora do Docker, defina a connection string em `ConnectionString
 
 ## 4. Criar o ambiente na Azure
 
-O script `Scripts/deploy.sh` cria tudo com o Azure CLI. Cada etapa é um bloco separado no script.
+O script `scripts/deploy.sh` cria todos os recursos com o Azure CLI e publica a API e o front com **`az webapp deploy`** (pacotes zip). Cada etapa é um bloco separado no script.
 
 ### Passo a passo
 
@@ -217,10 +216,10 @@ O script `Scripts/deploy.sh` cria tudo com o Azure CLI. Cada etapa é um bloco s
 2. Na raiz do repositório, rode o script:
 
    ```bash
-   ./Scripts/deploy.sh
+   ./scripts/deploy.sh
    ```
 
-   Se der "permissão negada", use `bash Scripts/deploy.sh`.
+   Se der "permissão negada", use `bash scripts/deploy.sh`.
 
 3. Informe a **senha do administrador do SQL** quando ela for pedida. Para não digitar, defina antes a variável `SQL_ADMIN_PASSWORD`. A senha nunca é gravada no repositório.
 
@@ -228,14 +227,15 @@ O script `Scripts/deploy.sh` cria tudo com o Azure CLI. Cada etapa é um bloco s
 
    | Etapa | O que faz |
    | --- | --- |
-   | 1/8 Verificações | Confere o Azure CLI, o login, a região e os provedores de recursos; instala a extensão `application-insights` do CLI |
-   | 2/8 Resource Group | `rg-dindinbuddies` |
-   | 3/8 Azure SQL | Servidor, banco Basic e firewall liberando os serviços da Azure |
-   | 4/8 Monitoramento | Log Analytics e Application Insights |
-   | 5/8 Container Registry | ACR Basic e build da imagem da API |
-   | 6/8 Web Apps | Plano B1 Linux, Web App da API, build da imagem do front (com a URL da API) e Web App do front |
-   | 7/8 Configuração | Connection string, App Insights e CORS na API; reinício dos Web Apps |
-   | 8/8 Saída | Espera a API responder e imprime as URLs |
+   | 1/9 Verificações | Confere o Azure CLI e o login, o .NET SDK, o Node, a ferramenta de zip, a região e os provedores de recursos; instala a extensão `application-insights` do CLI |
+   | 2/9 Resource Group | `rg-dindinbuddies` |
+   | 3/9 Azure SQL | Servidor, banco Basic e firewall liberando os serviços da Azure |
+   | 4/9 Monitoramento | Log Analytics e Application Insights |
+   | 5/9 Web Apps | Plano B1 Linux e os Web Apps da API (`DOTNETCORE:10.0`) e do front (`NODE:24-lts`), com Always On e só HTTPS |
+   | 6/9 Configuração | Connection string, App Insights e CORS na API |
+   | 7/9 Deploy da API | `dotnet publish`, zip e `az webapp deploy` |
+   | 8/9 Deploy do front | `npm run build` com a URL da API, zip e `az webapp deploy` |
+   | 9/9 Saída | Espera a API responder e imprime as URLs |
 
 ### Opções
 
@@ -243,17 +243,17 @@ O script `Scripts/deploy.sh` cria tudo com o Azure CLI. Cada etapa é um bloco s
 | --- | --- | --- |
 | `REGIAO` | `chilecentral` | Região da Azure |
 | `SQL_ADMIN_PASSWORD` | (pedida na execução) | Senha do administrador do SQL (`dindinadmin`) |
-| `SUFIXO` | aleatório | Sufixo dos nomes globais (SQL, ACR, Web Apps) |
+| `SUFIXO` | aleatório | Sufixo dos nomes globais (SQL e Web Apps) |
 
 Os nomes globais ganham um sufixo aleatório, mostrado no fim. Para **atualizar** o mesmo ambiente (por exemplo, publicar uma nova versão do código), rode de novo informando o sufixo:
 
 ```bash
-SUFIXO=<sufixo> ./Scripts/deploy.sh
+SUFIXO=<sufixo> ./scripts/deploy.sh
 ```
 
 ### Custos
 
-Enquanto os recursos existirem, o custo aproximado é de US$ 25 por mês (App Service B1, SQL Basic e ACR Basic, mais o uso do Log Analytics). Remova o ambiente quando não precisar mais dele (seção 7).
+Enquanto os recursos existirem, o custo aproximado é de US$ 20 por mês (App Service B1 e SQL Basic, mais o uso do Log Analytics). Remova o ambiente quando não precisar mais dele (seção 7).
 
 ---
 
@@ -270,7 +270,7 @@ No fim, o script imprime as três URLs:
 - **Front:** cadastre um cliente, abra contas e faça depósitos, saques e transferências. Na transferência, informe o número da conta de destino (ex.: `000002`).
 - **Swagger:** documenta e permite testar todos os endpoints. A raiz da API também redireciona para ele.
 
-Se a página abrir com erro logo após o deploy, aguarde alguns minutos: na primeira vez, o App Service baixa as imagens e a API cria as tabelas. Para acompanhar:
+Se a página abrir com erro logo após o deploy, aguarde alguns minutos: na primeira vez, o App Service inicia as aplicações e a API cria as tabelas. Para acompanhar:
 
 ```bash
 az webapp log tail -g rg-dindinbuddies -n app-dindinbuddies-api-<sufixo>

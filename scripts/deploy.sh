@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
 #
-# Cria todo o ambiente do DindinBuddies na Azure:
-# Resource Group, Azure SQL, Log Analytics + Application Insights, Container Registry,
-# App Service Plan e os Web Apps da API e do front.
+# Cria todo o ambiente do DindinBuddies na Azure e publica as aplicações com `az webapp deploy`:
+# Resource Group, Azure SQL, Log Analytics + Application Insights, App Service Plan e os
+# Web Apps da API (.NET 10) e do front (Node 24 servindo os arquivos estáticos).
 #
-# Pré-requisito: Azure CLI instalado e logado (`az login`). Docker é opcional: só é usado
-# se a assinatura não permitir o `az acr build` (comum em Azure for Students).
+# Pré-requisitos: Azure CLI logado (`az login`), .NET SDK 10 e Node.js com npm.
+# Docker não é necessário (ele só é usado para rodar o projeto localmente).
 #
 # Uso (a partir da raiz do repositório):
-#   ./Scripts/deploy.sh
+#   ./scripts/deploy.sh
 #
 # Variáveis de ambiente opcionais:
 #   SQL_ADMIN_PASSWORD  senha do administrador do SQL (se ausente, é pedida na execução)
 #   SUFIXO              sufixo dos nomes globais; informe o de uma execução anterior para
-#                       atualizar os mesmos recursos em vez de criar novos
+#                       atualizar os mesmos recursos (e republicar o código) em vez de criar novos
 #   REGIAO              região da Azure (padrão: chilecentral)
 
 set -euo pipefail
 
-# No Git Bash (Windows), evita que argumentos como "/subscriptions/..." virem caminhos do Windows.
+# No Git Bash (Windows), evita que argumentos como "/subscriptions/..." ou "/home/site/wwwroot"
+# virem caminhos do Windows. Caminhos de arquivos locais são convertidos com `nativo`.
 export MSYS_NO_PATHCONV=1
 
 # ---------------------------------------------------------------------------
@@ -35,15 +36,19 @@ SQL_BANCO="DindinBuddies"
 SQL_ADMIN="dindinadmin"
 LOG_WORKSPACE="log-${PREFIXO}"
 APP_INSIGHTS="appi-${PREFIXO}"
-ACR="acr${PREFIXO}${SUFIXO}"
 PLANO="asp-${PREFIXO}"
 APP_API="app-${PREFIXO}-api-${SUFIXO}"
 APP_WEB="app-${PREFIXO}-web-${SUFIXO}"
-IMAGEM_API="dindinbuddies-api"
-IMAGEM_WEB="dindinbuddies-web"
-TAG="$(date +%Y%m%d%H%M%S)"
+RUNTIME_API="DOTNETCORE:10.0"
+RUNTIME_WEB="NODE:24-lts"
+STARTUP_API="dotnet DindinBuddies.Api.dll"
+# Comando recomendado pela Microsoft para SPA no runtime Node: serve os estáticos e
+# devolve o index.html para as rotas do React Router.
+STARTUP_WEB="pm2 serve /home/site/wwwroot --no-daemon --spa"
 
 RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TEMP_DEPLOY="$(mktemp -d)"
+trap 'rm -rf "$TEMP_DEPLOY"' EXIT
 
 # ---------------------------------------------------------------------------
 # Funções auxiliares
@@ -60,15 +65,58 @@ azv() { az "$@" --only-show-errors -o tsv | tr -d '\r'; }
 # Verdadeiro se o comando "az ... show" encontrar o recurso.
 existe() { az "$@" --only-show-errors -o none >/dev/null 2>&1; }
 
+# Caminho que programas nativos do Windows (az, dotnet, python) entendem: C:/Users/... no
+# Git Bash; inalterado no Linux e no macOS.
+nativo() {
+  if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi
+}
+
+# Python com o módulo zipfile, usado para gerar os pacotes (o Git Bash não tem o comando zip).
+PYTHON=""
+for candidato in python3 python py; do
+  if command -v "$candidato" >/dev/null 2>&1 && "$candidato" -c "import zipfile" >/dev/null 2>&1; then
+    PYTHON="$candidato"
+    break
+  fi
+done
+
+# Compacta o conteúdo de uma pasta (não a pasta em si) em um zip com caminhos "/".
+# Uso: compactar <pasta> <arquivo.zip>
+compactar() {
+  local origem="$1" destino="$2"
+  rm -f "$destino"
+  if command -v zip >/dev/null 2>&1; then
+    (cd "$origem" && zip -qr "$destino" .)
+  elif [[ -n "$PYTHON" ]]; then
+    "$PYTHON" - "$(nativo "$origem")" "$(nativo "$destino")" <<'PY'
+import os, sys, zipfile
+origem, destino = sys.argv[1], sys.argv[2]
+with zipfile.ZipFile(destino, "w", zipfile.ZIP_DEFLATED) as z:
+    for pasta, _, arquivos in os.walk(origem):
+        for nome in arquivos:
+            caminho = os.path.join(pasta, nome)
+            # O zipfile grava o caminho relativo com "/", mesmo no Windows.
+            z.write(caminho, os.path.relpath(caminho, origem))
+PY
+  else
+    falha "Nenhuma ferramenta para gerar zip encontrada (zip ou Python 3)."
+  fi
+}
+
 trap 'falha "O deploy parou na linha $LINENO. Veja a mensagem de erro acima. Para continuar de onde parou, rode de novo com SUFIXO=${SUFIXO}."' ERR
 
 # ---------------------------------------------------------------------------
 # 1. Verificações iniciais
 # ---------------------------------------------------------------------------
-etapa "1/8 Verificações iniciais"
+etapa "1/9 Verificações iniciais"
 
 command -v az >/dev/null 2>&1 || falha "Azure CLI não encontrado. Instale: https://learn.microsoft.com/cli/azure/install-azure-cli"
 command -v curl >/dev/null 2>&1 || falha "curl não encontrado."
+command -v dotnet >/dev/null 2>&1 || falha ".NET SDK não encontrado. Instale o .NET SDK 10: https://dotnet.microsoft.com/download"
+dotnet --list-sdks | grep -q '^10\.' || falha "É necessário o .NET SDK 10 (encontrados: $(dotnet --list-sdks | cut -d' ' -f1 | tr '\n' ' '))."
+command -v npm >/dev/null 2>&1 || falha "Node.js/npm não encontrado. Instale o Node.js 22 ou superior: https://nodejs.org"
+command -v zip >/dev/null 2>&1 || [[ -n "$PYTHON" ]] || falha "Instale o comando zip ou o Python 3 (usados para gerar os pacotes de deploy)."
+ok ".NET SDK, Node.js e ferramenta de zip encontrados"
 
 az account show -o none 2>/dev/null || falha "Azure CLI não está logado. Rode 'az login' e tente de novo."
 ASSINATURA="$(azv account show --query name)"
@@ -81,7 +129,7 @@ ok "Região: ${REGIAO}"
 [[ "$SUFIXO" =~ ^[a-z0-9]{3,10}$ ]] || falha "SUFIXO deve ter de 3 a 10 letras minúsculas ou números."
 ok "Sufixo dos nomes: ${SUFIXO}"
 
-for provedor in Microsoft.Web Microsoft.Sql Microsoft.ContainerRegistry Microsoft.OperationalInsights Microsoft.Insights; do
+for provedor in Microsoft.Web Microsoft.Sql Microsoft.OperationalInsights Microsoft.Insights; do
   if [[ "$(azv provider show -n "$provedor" --query registrationState)" != "Registered" ]]; then
     info "Registrando o provedor ${provedor} (pode levar alguns minutos)..."
     az provider register -n "$provedor" --wait --only-show-errors
@@ -110,14 +158,14 @@ ok "Senha do SQL válida"
 # ---------------------------------------------------------------------------
 # 2. Resource Group
 # ---------------------------------------------------------------------------
-etapa "2/8 Resource Group"
+etapa "2/9 Resource Group"
 az group create -n "$GRUPO" -l "$REGIAO" --only-show-errors -o none
 ok "${GRUPO} (${REGIAO})"
 
 # ---------------------------------------------------------------------------
 # 3. Azure SQL
 # ---------------------------------------------------------------------------
-etapa "3/8 Azure SQL"
+etapa "3/9 Azure SQL"
 if existe sql server show -g "$GRUPO" -n "$SQL_SERVIDOR"; then
   info "Servidor já existe; atualizando a senha do administrador..."
   az sql server update -g "$GRUPO" -n "$SQL_SERVIDOR" --admin-password "$SQL_ADMIN_PASSWORD" --only-show-errors -o none
@@ -145,7 +193,7 @@ CONNECTION_STRING="Server=tcp:${SQL_HOST},1433;Database=${SQL_BANCO};User ID=${S
 # ---------------------------------------------------------------------------
 # 4. Monitoramento
 # ---------------------------------------------------------------------------
-etapa "4/8 Log Analytics e Application Insights"
+etapa "4/9 Log Analytics e Application Insights"
 if ! existe monitor log-analytics workspace show -g "$GRUPO" -n "$LOG_WORKSPACE"; then
   az monitor log-analytics workspace create -g "$GRUPO" -n "$LOG_WORKSPACE" -l "$REGIAO" --only-show-errors -o none
 fi
@@ -160,114 +208,88 @@ APPINSIGHTS_CONNECTION_STRING="$(azv monitor app-insights component show -g "$GR
 ok "Application Insights ${APP_INSIGHTS}"
 
 # ---------------------------------------------------------------------------
-# 5. Container Registry e imagem da API
+# 5. App Service Plan e Web Apps
 # ---------------------------------------------------------------------------
-etapa "5/8 Container Registry e imagem da API"
-if ! existe acr show -g "$GRUPO" -n "$ACR"; then
-  az acr create -g "$GRUPO" -n "$ACR" -l "$REGIAO" --sku Basic --only-show-errors -o none
-fi
-ACR_ID="$(azv acr show -g "$GRUPO" -n "$ACR" --query id)"
-ACR_SERVIDOR="$(azv acr show -g "$GRUPO" -n "$ACR" --query loginServer)"
-ok "Registry ${ACR_SERVIDOR}"
-
-# Gera a imagem com `az acr build`. Se a assinatura bloquear o ACR Tasks (comum em Azure for
-# Students), usa o Docker local, quando disponível. Uso: construir_imagem <imagem> <pasta> [build-arg]
-construir_imagem() {
-  local imagem="$1" pasta="$2" build_arg="${3:-}"
-  local referencia="${ACR_SERVIDOR}/${imagem}:${TAG}"
-  local args_acr=() args_docker=()
-  if [[ -n "$build_arg" ]]; then
-    args_acr=(--build-arg "$build_arg")
-    args_docker=(--build-arg "$build_arg")
-  fi
-
-  info "Gerando ${imagem}:${TAG} com az acr build..."
-  # ${arr[@]+"${arr[@]}"} expande um array vazio sem erro no Bash 3.2 (macOS) com set -u.
-  if az acr build -r "$ACR" -t "${imagem}:${TAG}" ${args_acr[@]+"${args_acr[@]}"} "${RAIZ}/${pasta}" --only-show-errors; then
-    return 0
-  fi
-
-  aviso "O az acr build falhou (a assinatura pode não permitir ACR Tasks)."
-  if ! command -v docker >/dev/null 2>&1 || ! docker info >/dev/null 2>&1; then
-    falha "Sem az acr build e sem Docker em execução. Inicie o Docker e rode de novo com SUFIXO=${SUFIXO}."
-  fi
-
-  info "Gerando ${imagem}:${TAG} com o Docker local..."
-  az acr login -n "$ACR" --only-show-errors
-  docker build --platform linux/amd64 -t "$referencia" ${args_docker[@]+"${args_docker[@]}"} "${RAIZ}/${pasta}"
-  docker push "$referencia"
-}
-
-construir_imagem "$IMAGEM_API" "api"
-ok "Imagem ${IMAGEM_API}:${TAG}"
-
-# ---------------------------------------------------------------------------
-# 6. App Service Plan e Web Apps
-# ---------------------------------------------------------------------------
-etapa "6/8 App Service Plan e Web Apps"
+etapa "5/9 App Service Plan e Web Apps"
 if ! existe appservice plan show -g "$GRUPO" -n "$PLANO"; then
   az appservice plan create -g "$GRUPO" -n "$PLANO" -l "$REGIAO" --is-linux --sku B1 --only-show-errors -o none
 fi
 ok "Plano ${PLANO} (B1 Linux)"
 
-# Cria o Web App com identidade gerenciada que pode baixar imagens do ACR (AcrPull), sem senha.
-# Uso: criar_web_app <nome> <imagem:tag>
+# Cria (ou ajusta) o Web App com o runtime e o comando de inicialização.
+# Uso: criar_web_app <nome> <runtime> <comando de inicialização>
 criar_web_app() {
-  local nome="$1" imagem="$2"
+  local nome="$1" runtime="$2" startup="$3"
   if ! existe webapp show -g "$GRUPO" -n "$nome"; then
-    az webapp create -g "$GRUPO" -p "$PLANO" -n "$nome" \
-      --container-image-name "${ACR_SERVIDOR}/${imagem}" \
-      --assign-identity '[system]' --role AcrPull --scope "$ACR_ID" \
-      --acr-use-identity --acr-identity '[system]' \
-      --https-only true --only-show-errors -o none
+    az webapp create -g "$GRUPO" -p "$PLANO" -n "$nome" --runtime "$runtime" \
+      --startup-file "$startup" --https-only true --only-show-errors -o none
   fi
-  az webapp config set -g "$GRUPO" -n "$nome" --always-on true \
-    --generic-configurations '{"acrUseManagedIdentityCreds": true}' --only-show-errors -o none
-  az webapp config container set -g "$GRUPO" -n "$nome" \
-    --container-image-name "${ACR_SERVIDOR}/${imagem}" \
-    --container-registry-url "https://${ACR_SERVIDOR}" --only-show-errors -o none
+  az webapp config set -g "$GRUPO" -n "$nome" --always-on true --startup-file "$startup" \
+    --only-show-errors -o none
+  # Os pacotes chegam prontos (já compilados); a Azure não precisa rodar build no deploy.
+  az webapp config appsettings set -g "$GRUPO" -n "$nome" \
+    --settings "SCM_DO_BUILD_DURING_DEPLOYMENT=false" --only-show-errors -o none
 }
 
-criar_web_app "$APP_API" "${IMAGEM_API}:${TAG}"
-API_HOST="$(azv webapp show -g "$GRUPO" -n "$APP_API" --query defaultHostName)"
-API_URL="https://${API_HOST}"
-ok "Web App da API: ${API_URL}"
+criar_web_app "$APP_API" "$RUNTIME_API" "$STARTUP_API"
+API_URL="https://$(azv webapp show -g "$GRUPO" -n "$APP_API" --query defaultHostName)"
+ok "Web App da API (${RUNTIME_API}): ${API_URL}"
 
-# A URL da API só é conhecida depois que o Web App existe; o front a recebe no build.
-construir_imagem "$IMAGEM_WEB" "web" "VITE_API_URL=${API_URL}"
-ok "Imagem ${IMAGEM_WEB}:${TAG}"
-
-criar_web_app "$APP_WEB" "${IMAGEM_WEB}:${TAG}"
-WEB_HOST="$(azv webapp show -g "$GRUPO" -n "$APP_WEB" --query defaultHostName)"
-WEB_URL="https://${WEB_HOST}"
-ok "Web App do front: ${WEB_URL}"
+criar_web_app "$APP_WEB" "$RUNTIME_WEB" "$STARTUP_WEB"
+WEB_URL="https://$(azv webapp show -g "$GRUPO" -n "$APP_WEB" --query defaultHostName)"
+ok "Web App do front (${RUNTIME_WEB}): ${WEB_URL}"
 
 # ---------------------------------------------------------------------------
-# 7. Configuração
+# 6. Configuração da API
 # ---------------------------------------------------------------------------
-etapa "7/8 Configuração da API"
+etapa "6/9 Configuração da API"
 # Do tipo SQLAzure, vira a variável SQLAZURECONNSTR_DindinBuddies, que o .NET lê como
 # ConnectionStrings:DindinBuddies. Fica oculta no portal.
 az webapp config connection-string set -g "$GRUPO" -n "$APP_API" -t SQLAzure \
   --settings "DindinBuddies=${CONNECTION_STRING}" --only-show-errors -o none
 az webapp config appsettings set -g "$GRUPO" -n "$APP_API" --only-show-errors -o none --settings \
-  "WEBSITES_PORT=8080" \
   "APPLICATIONINSIGHTS_CONNECTION_STRING=${APPINSIGHTS_CONNECTION_STRING}" \
   "Cors__OrigemFront=${WEB_URL}"
 ok "Connection string, Application Insights e CORS configurados"
 
-az webapp config appsettings set -g "$GRUPO" -n "$APP_WEB" --settings "WEBSITES_PORT=80" --only-show-errors -o none
+# ---------------------------------------------------------------------------
+# 7. Deploy da API
+# ---------------------------------------------------------------------------
+etapa "7/9 Deploy da API (dotnet publish + az webapp deploy)"
+info "Gerando o pacote da API..."
+dotnet publish "$(nativo "${RAIZ}/api/src/DindinBuddies.Api/DindinBuddies.Api.csproj")" \
+  -c Release -o "$(nativo "${TEMP_DEPLOY}/api")" --nologo -v quiet
+compactar "${TEMP_DEPLOY}/api" "${TEMP_DEPLOY}/api.zip"
+ok "Pacote api.zip gerado"
 
-# Reinicia para aplicar a configuração e repetir o download da imagem já com a permissão AcrPull.
-az webapp restart -g "$GRUPO" -n "$APP_API" --only-show-errors
-az webapp restart -g "$GRUPO" -n "$APP_WEB" --only-show-errors
-ok "Web Apps reiniciados"
+info "Publicando no Web App ${APP_API}..."
+az webapp deploy -g "$GRUPO" -n "$APP_API" --src-path "$(nativo "${TEMP_DEPLOY}/api.zip")" \
+  --type zip --clean true --restart true --track-status false --only-show-errors -o none
+ok "API publicada"
 
 # ---------------------------------------------------------------------------
-# 8. Saída
+# 8. Deploy do front
 # ---------------------------------------------------------------------------
-etapa "8/8 Aguardando a API responder"
-info "Na primeira vez, o download da imagem e a criação das tabelas levam alguns minutos."
+etapa "8/9 Deploy do front (npm run build + az webapp deploy)"
+info "Gerando o build do front com a URL da API (${API_URL})..."
+(
+  cd "${RAIZ}/web"
+  npm ci --no-audit --no-fund --loglevel=error
+  VITE_API_URL="$API_URL" npm run build --silent
+)
+compactar "${RAIZ}/web/dist" "${TEMP_DEPLOY}/web.zip"
+ok "Pacote web.zip gerado"
+
+info "Publicando no Web App ${APP_WEB}..."
+az webapp deploy -g "$GRUPO" -n "$APP_WEB" --src-path "$(nativo "${TEMP_DEPLOY}/web.zip")" \
+  --type zip --clean true --restart true --track-status false --only-show-errors -o none
+ok "Front publicado"
+
+# ---------------------------------------------------------------------------
+# 9. Saída
+# ---------------------------------------------------------------------------
+etapa "9/9 Aguardando a API responder"
+info "Na primeira vez, a inicialização e a criação das tabelas levam alguns minutos."
 api_no_ar=false
 for _ in $(seq 1 40); do
   if [[ "$(curl -s -o /dev/null -w '%{http_code}' "${API_URL}/api/clientes" || true)" == "200" ]]; then
@@ -288,5 +310,5 @@ printf '  Front:    %s\n' "$WEB_URL"
 printf '  API:      %s\n' "$API_URL"
 printf '  Swagger:  %s/swagger\n\n' "$API_URL"
 printf '  Resource Group: %s   Sufixo: %s\n' "$GRUPO" "$SUFIXO"
-printf '  Para atualizar estes recursos: SUFIXO=%s ./Scripts/deploy.sh\n' "$SUFIXO"
-printf '  Para remover tudo:             az group delete -n %s --yes --no-wait\n\n' "$GRUPO"
+printf '  Para republicar nestes recursos: SUFIXO=%s ./scripts/deploy.sh\n' "$SUFIXO"
+printf '  Para remover tudo:               az group delete -n %s --yes --no-wait\n\n' "$GRUPO"
