@@ -2,18 +2,23 @@
 
 Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abertura de contas e Movimentações (depósito, saque e transferência), com Extrato por período.
 
-**Grupo 3BugBuddies**
 
-| Nome | RM |
-| --- | --- |
-| Felipe Ishii | 565339 |
-| Gabriel Nogueira Peixoto | 563925 |
-| Giovanna Neri dos Santos | 566154 |
-| Mariana Inoue | 565834 |
 
-| | |
-| --- | --- |
 | **Vídeo da solução** | link_do_vídeo |
+| --- | --- |
+
+---
+
+## Integrantes do Grupo
+
+| Nome | RM | Turma |
+|------|-----|-------|
+| Felipe Yuiti Ishii | 565339 | 2TDS Fevereiro |
+| Gabriel Nogueira Peixoto | 563925 | 2TDS Fevereiro |
+| Giovanna Neri dos Santos | 566154 | 2TDS Fevereiro |
+| Mariana Inoue | 565834 | 2TDS Fevereiro |
+
+
 
 ## Sumário
 
@@ -26,7 +31,7 @@ Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abe
 7. [How to: criar o ambiente na Azure](#7-how-to-criar-o-ambiente-na-azure)
 8. [Acessar o front, a API e o Swagger](#8-acessar-o-front-a-api-e-o-swagger)
 9. [Monitoramento com Application Insights](#9-monitoramento-com-application-insights)
-10. [Remover tudo](#11-remover-tudo)
+10. [Remover tudo](#10-remover-tudo)
 
 ---
 
@@ -640,9 +645,4 @@ az group exists -n rg-dindinbuddies
 ```
 
 Quando o comando retornar `false`, o ambiente foi removido.
-
----
-
-## 11. Integrantes
-
 
