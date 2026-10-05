@@ -1,24 +1,11 @@
-# DindinBuddies - CP5 - DevOps Tools & Cloud Computing
+# DindinBuddies
 
-Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abertura de contas e Movimentações (depósito, saque e transferência), com Extrato por período.
+Banco digital de exemplo do projeto **Dimdim** (DevOps Tools & Cloud Computing): cadastro de clientes, abertura de contas e movimentações (depósito, saque e transferência), com extrato por período.
 
-
-
-| **Vídeo da solução** | (Em breve) |
+| | |
 | --- | --- |
-
----
-
-## Integrantes do Grupo
-
-| Nome | RM |
-|------|-----|
-| Felipe Yuiti Ishii | 565339 |
-| Gabriel Nogueira Peixoto | 563925 |
-| Giovanna Neri dos Santos | 566154 |
-| Mariana Inoue | 565834 |
-
-
+| **Vídeo da solução** | _link do vídeo (a preencher)_ |
+| **Grupo** | 3BugBuddies ([integrantes](#12-integrantes)) |
 
 ## Sumário
 
@@ -31,7 +18,9 @@ Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abe
 7. [How to: criar o ambiente na Azure](#7-how-to-criar-o-ambiente-na-azure)
 8. [Acessar o front, a API e o Swagger](#8-acessar-o-front-a-api-e-o-swagger)
 9. [Monitoramento com Application Insights](#9-monitoramento-com-application-insights)
-10. [Remover tudo](#10-remover-tudo)
+10. [Testes e evidências (roteiro do vídeo)](#10-testes-e-evidências-roteiro-do-vídeo)
+11. [Remover tudo](#11-remover-tudo)
+12. [Integrantes](#12-integrantes)
 
 ---
 
@@ -87,6 +76,7 @@ DindinBuddies/
 ├─ scripts/
 │  ├─ deploy.sh                          Azure CLI: cria o ambiente e faz o deploy
 │  ├─ deploy.env.example                 configuração do deploy (copie para deploy.env)
+│  ├─ liberar-ip.sh                      Azure CLI: libera um IP no firewall do Azure SQL
 │  ├─ ddl.sql                            DDL das tabelas
 │  ├─ consultas.sql                      consultas para conferir os dados no banco
 │  └─ DindinBuddies.postman_collection.json   coleção com todas as operações
@@ -101,7 +91,10 @@ DindinBuddies/
 
 Três tabelas com relacionamento: um **Cliente** tem várias **Contas**; uma **Conta** tem várias **Transações**. Uma transferência é um único registro, com a conta de origem (`ContaId`) e a de destino (`ContaDestinoId`).
 
-![Desenho Diagrama Relacionamento](docs/Tabela_relacionamento.jpeg)
+```
+Clientes 1 ──── N Contas 1 ──── N Transacoes   (ContaId: conta da movimentação)
+                       1 ──── N Transacoes   (ContaDestinoId: só em transferências)
+```
 
 | Tabela | Colunas |
 | --- | --- |
@@ -114,6 +107,20 @@ Três tabelas com relacionamento: um **Cliente** tem várias **Contas**; uma **C
 - Nada é apagado em cascata. Conta encerrada vira `Ativa = 0` e mantém o histórico; só contas sem movimentações podem ser excluídas.
 - Excluir uma transação é um **estorno**: o saldo das contas envolvidas volta ao que era antes.
 - O saldo fica gravado na conta e muda na mesma transação do banco que registra a movimentação. Datas são gravadas em UTC.
+
+### Acessar o banco de fora da Azure
+
+Por segurança, o firewall do Azure SQL só aceita os serviços da Azure (a API). Para conectar uma ferramenta como **DataGrip**, **Azure Data Studio** ou `sqlcmd` a partir da sua máquina, libere o seu IP com o script [`scripts/liberar-ip.sh`](scripts/liberar-ip.sh), que cria uma regra no firewall só para esse IP (o banco continua fechado para o resto da internet):
+
+| Comando | O que faz |
+| --- | --- |
+| `./scripts/liberar-ip.sh` | Libera o IP público desta máquina |
+| `./scripts/liberar-ip.sh 200.150.10.20` | Libera um IP informado |
+| `./scripts/liberar-ip.sh --remover` | Remove a regra do IP desta máquina (ou de um IP informado) |
+
+O script encontra o servidor sozinho (pelo `scripts/deploy.env` ou pelo Resource Group) e, no fim, mostra os dados de conexão: host `sql-dindinbuddies-<sufixo>.database.windows.net`, porta `1433`, banco `DindinBuddies` e o usuário administrador. A liberação pode levar alguns minutos para valer.
+
+> Sem liberar nenhum IP, também é possível consultar o banco pelo **Azure Cloud Shell** (que roda dentro da Azure) com `sqlcmd`.
 
 ---
 
@@ -568,6 +575,10 @@ Para **republicar** nos mesmos recursos (por exemplo, depois de mudar o código)
 
 Os campos também podem ser passados como variáveis de ambiente, que têm prioridade sobre o arquivo (ex.: `SUFIXO=abc12 ./scripts/deploy.sh`). Sem o `deploy.env`, guarde o sufixo mostrado no fim da execução e use-o assim para atualizar o mesmo ambiente.
 
+### Custos
+
+Enquanto os recursos existirem, o custo aproximado é de US$ 20 por mês (App Service B1 e SQL Basic, mais o uso do Log Analytics). Remova o ambiente quando não precisar mais dele ([seção 11](#11-remover-tudo)).
+
 ---
 
 ## 8. Acessar o front, a API e o Swagger
@@ -627,7 +638,23 @@ Os dados levam de 1 a 3 minutos para aparecer (exceto no Live metrics, que é im
 
 ---
 
-## 10. Remover tudo
+## 10. Testes e evidências (roteiro do vídeo)
+
+Roteiro para demonstrar a solução na Azure, com a persistência no banco após **cada operação do CRUD, em cada tabela**:
+
+1. **Criação dos recursos e deploy:** executar `./scripts/deploy.sh` e mostrar, no portal, o Resource Group com o Azure SQL, o App Service Plan, os 2 Web Apps, o Application Insights e o Log Analytics.
+2. **Abrir o banco:** rodar `./scripts/liberar-ip.sh` para liberar o seu IP no firewall ([seção 3](#acessar-o-banco-de-fora-da-azure)) e conectar o DataGrip (ou usar o **Query editor** do portal: **SQL databases → DindinBuddies → Query editor**), entrando com `dindinadmin`. Manter aberto o [`scripts/consultas.sql`](scripts/consultas.sql).
+3. **Clientes:** pelo front (ou Postman/Swagger), cadastrar, editar e excluir um cliente; após cada operação, rodar a consulta **1) Clientes** e mostrar o resultado.
+4. **Contas:** abrir duas contas, alterar o tipo de uma, encerrar e excluir uma conta sem movimentações; após cada operação, rodar a consulta **2) Contas**.
+5. **Transações:** depositar, sacar, transferir, editar a descrição de uma transação e estornar (excluir) uma; após cada operação, rodar as consultas **3) Transações** e **2) Contas** (saldos) e, no fim, a **4) Conferência** de saldos.
+6. **Regras de negócio:** mostrar um saque sem saldo (422) e a exclusão de um cliente com contas (422).
+7. **Monitoramento:** abrir o Application Insights (Live metrics, Application map com a dependência SQL, Performance) e as métricas do banco.
+
+Todas as operações também podem ser executadas em sequência pela coleção do Postman ([seção 4](#4-api-endpoints-e-json-das-operações)), que confere o status HTTP de cada resposta.
+
+---
+
+## 11. Remover tudo
 
 Todos os recursos ficam no mesmo Resource Group. Para remover tudo (e parar a cobrança):
 
@@ -643,3 +670,14 @@ az group exists -n rg-dindinbuddies
 
 Quando o comando retornar `false`, o ambiente foi removido.
 
+---
+
+## 12. Integrantes
+
+**Grupo 3BugBuddies**
+
+| Nome | RM |
+| --- | --- |
+| _a preencher_ | _a preencher_ |
+| _a preencher_ | _a preencher_ |
+| _a preencher_ | _a preencher_ |
