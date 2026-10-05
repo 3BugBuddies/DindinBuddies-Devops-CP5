@@ -1,0 +1,155 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <title>DindinBuddies - arquitetura na Azure</title>
+  <defs>
+    <marker id="seta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#323130"/>
+    </marker>
+    <marker id="seta-deploy" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8661C5"/>
+    </marker>
+  </defs>
+
+  <!-- Fundo branco: legível nos temas claro e escuro do GitHub -->
+  <rect width="1200" height="720" fill="#FFFFFF"/>
+
+  <text x="40" y="44" font-size="24" font-weight="700" fill="#201F1E">DindinBuddies · Arquitetura na Azure</text>
+  <text x="40" y="68" font-size="14" fill="#605E5C">Web App (API .NET 10 + front React) com Azure SQL (PaaS) e monitoramento com Application Insights</text>
+
+  <!-- ===== Atores externos ===== -->
+  <g>
+    <rect x="40" y="170" width="200" height="96" rx="10" fill="#F3F2F1" stroke="#605E5C" stroke-width="1.5"/>
+    <circle cx="80" cy="206" r="12" fill="none" stroke="#323130" stroke-width="2"/>
+    <path d="M60,240 a20,16 0 0 1 40,0" fill="none" stroke="#323130" stroke-width="2"/>
+    <text x="112" y="204" font-size="16" font-weight="700" fill="#201F1E">Usuário</text>
+    <text x="112" y="224" font-size="13" fill="#605E5C">Navegador</text>
+    <text x="112" y="242" font-size="13" fill="#605E5C">(internet)</text>
+  </g>
+
+  <g>
+    <rect x="40" y="520" width="200" height="120" rx="10" fill="#F3F2F1" stroke="#605E5C" stroke-width="1.5"/>
+    <rect x="58" y="540" width="44" height="32" rx="3" fill="#323130"/>
+    <text x="64" y="561" font-size="13" font-family="Consolas, monospace" fill="#FFFFFF">&gt;_</text>
+    <text x="112" y="552" font-size="16" font-weight="700" fill="#201F1E">Desenvolvedor</text>
+    <text x="112" y="572" font-size="13" fill="#605E5C">Azure CLI</text>
+    <text x="58" y="600" font-size="13" font-family="Consolas, monospace" fill="#323130">scripts/deploy.sh</text>
+    <text x="58" y="620" font-size="12" fill="#605E5C">dotnet publish · npm build</text>
+  </g>
+
+  <!-- ===== Assinatura e Resource Group ===== -->
+  <rect x="290" y="92" width="880" height="608" rx="12" fill="#FFFFFF" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 5"/>
+  <text x="308" y="116" font-size="14" font-weight="700" fill="#0078D4">Assinatura Azure</text>
+
+  <rect x="308" y="128" width="844" height="556" rx="10" fill="#F5FAFF" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="326" y="152" font-size="14" font-weight="700" fill="#004E8C">Resource Group: rg-dindinbuddies</text>
+  <text x="590" y="152" font-size="13" fill="#605E5C">· região chilecentral</text>
+
+  <!-- App Service Plan -->
+  <rect x="330" y="168" width="420" height="320" rx="10" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="330" y="168" width="420" height="30" rx="10" fill="#0078D4"/>
+  <rect x="330" y="186" width="420" height="12" fill="#0078D4"/>
+  <text x="346" y="189" font-size="14" font-weight="700" fill="#FFFFFF">App Service Plan · asp-dindinbuddies</text>
+  <text x="608" y="189" font-size="12" fill="#DEECF9">B1 Linux · Always On</text>
+
+  <!-- Web App do front -->
+  <g>
+    <rect x="350" y="214" width="380" height="118" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+    <rect x="364" y="230" width="34" height="26" rx="3" fill="none" stroke="#0078D4" stroke-width="2"/>
+    <line x1="364" y1="238" x2="398" y2="238" stroke="#0078D4" stroke-width="2"/>
+    <text x="410" y="240" font-size="15" font-weight="700" fill="#201F1E">Web App · front-end</text>
+    <text x="410" y="258" font-size="12" font-family="Consolas, monospace" fill="#605E5C">app-dindinbuddies-web-&lt;sufixo&gt;</text>
+    <text x="364" y="284" font-size="13" fill="#323130">Runtime Node 24 LTS · pm2 serve --spa</text>
+    <text x="364" y="304" font-size="13" fill="#323130">React + Vite + TypeScript (arquivos estáticos)</text>
+    <text x="364" y="322" font-size="12" fill="#605E5C">Telas: Clientes · Detalhe do cliente · Conta</text>
+  </g>
+
+  <!-- Web App da API -->
+  <g>
+    <rect x="350" y="350" width="380" height="122" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+    <rect x="364" y="366" width="34" height="26" rx="3" fill="none" stroke="#0078D4" stroke-width="2"/>
+    <text x="369" y="384" font-size="12" font-weight="700" fill="#0078D4">API</text>
+    <text x="410" y="376" font-size="15" font-weight="700" fill="#201F1E">Web App · API REST</text>
+    <text x="410" y="394" font-size="12" font-family="Consolas, monospace" fill="#605E5C">app-dindinbuddies-api-&lt;sufixo&gt;</text>
+    <text x="364" y="420" font-size="13" fill="#323130">Runtime .NET 10 · ASP.NET Core (Controllers)</text>
+    <text x="364" y="440" font-size="13" fill="#323130">EF Core (migrations) · Swagger · OpenTelemetry</text>
+    <text x="364" y="460" font-size="12" fill="#605E5C">Clean Architecture: Domain · Application · Infrastructure</text>
+  </g>
+
+  <!-- Azure SQL -->
+  <g>
+    <rect x="810" y="168" width="320" height="320" rx="10" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+    <rect x="810" y="168" width="320" height="30" rx="10" fill="#0078D4"/>
+    <rect x="810" y="186" width="320" height="12" fill="#0078D4"/>
+    <text x="826" y="189" font-size="14" font-weight="700" fill="#FFFFFF">Azure SQL Server (PaaS)</text>
+    <text x="826" y="222" font-size="12" font-family="Consolas, monospace" fill="#605E5C">sql-dindinbuddies-&lt;sufixo&gt;</text>
+
+    <rect x="828" y="238" width="284" height="170" rx="8" fill="#F5FAFF" stroke="#0078D4" stroke-width="1.2"/>
+    <!-- cilindro -->
+    <ellipse cx="864" cy="262" rx="20" ry="7" fill="#DEECF9" stroke="#0078D4" stroke-width="2"/>
+    <path d="M844,262 v30 a20,7 0 0 0 40,0 v-30" fill="#DEECF9" stroke="#0078D4" stroke-width="2"/>
+    <text x="896" y="266" font-size="15" font-weight="700" fill="#201F1E">Banco DindinBuddies</text>
+    <text x="896" y="285" font-size="13" fill="#605E5C">Azure SQL Database · Basic</text>
+    <text x="844" y="324" font-size="13" font-weight="700" fill="#323130">Tabelas</text>
+    <text x="844" y="344" font-size="13" fill="#323130">Clientes 1─N Contas</text>
+    <text x="844" y="362" font-size="13" fill="#323130">Contas 1─N Transacoes</text>
+    <text x="844" y="390" font-size="12" fill="#605E5C">Criadas pelas migrations do EF Core</text>
+
+    <text x="828" y="434" font-size="13" font-weight="700" fill="#323130">Firewall</text>
+    <text x="828" y="452" font-size="12" fill="#605E5C">Permitir serviços e recursos da Azure</text>
+    <text x="828" y="470" font-size="12" fill="#605E5C">Conexão criptografada (Encrypt=True)</text>
+  </g>
+
+  <!-- Application Insights -->
+  <g>
+    <rect x="350" y="540" width="380" height="120" rx="10" fill="#FFFFFF" stroke="#8661C5" stroke-width="1.5"/>
+    <polyline points="366,600 380,584 392,594 406,566" fill="none" stroke="#8661C5" stroke-width="3" stroke-linejoin="round"/>
+    <text x="420" y="572" font-size="15" font-weight="700" fill="#201F1E">Application Insights</text>
+    <text x="420" y="590" font-size="12" font-family="Consolas, monospace" fill="#605E5C">appi-dindinbuddies</text>
+    <text x="366" y="622" font-size="13" fill="#323130">Requisições · falhas · tempo de resposta</text>
+    <text x="366" y="642" font-size="13" fill="#323130">Dependências SQL (queries ao banco)</text>
+  </g>
+
+  <!-- Log Analytics -->
+  <g>
+    <rect x="810" y="540" width="320" height="120" rx="10" fill="#FFFFFF" stroke="#8661C5" stroke-width="1.5"/>
+    <rect x="826" y="560" width="10" height="26" fill="#8661C5"/>
+    <rect x="840" y="552" width="10" height="34" fill="#8661C5"/>
+    <rect x="854" y="568" width="10" height="18" fill="#8661C5"/>
+    <text x="880" y="572" font-size="15" font-weight="700" fill="#201F1E">Log Analytics Workspace</text>
+    <text x="880" y="590" font-size="12" font-family="Consolas, monospace" fill="#605E5C">log-dindinbuddies</text>
+    <text x="826" y="622" font-size="13" fill="#323130">Armazena a telemetria</text>
+    <text x="826" y="642" font-size="13" fill="#323130">Consultas KQL (Logs)</text>
+  </g>
+
+  <!-- ===== Conexões ===== -->
+  <!-- Usuário -> front -->
+  <path d="M240,200 C290,200 300,262 348,262" fill="none" stroke="#323130" stroke-width="2" marker-end="url(#seta)"/>
+  <text x="248" y="190" font-size="12" font-weight="600" fill="#323130">HTTPS</text>
+
+  <!-- Usuário -> API -->
+  <path d="M240,240 C292,240 296,400 348,400" fill="none" stroke="#323130" stroke-width="2" marker-end="url(#seta)"/>
+  <rect x="242" y="300" width="56" height="34" fill="#FFFFFF"/>
+  <text x="246" y="314" font-size="12" font-weight="600" fill="#323130">HTTPS</text>
+  <text x="246" y="329" font-size="11" fill="#605E5C">REST/JSON</text>
+
+  <!-- API -> SQL -->
+  <line x1="730" y1="392" x2="826" y2="392" stroke="#323130" stroke-width="2" marker-end="url(#seta)"/>
+  <rect x="738" y="344" width="68" height="36" fill="#FFFFFF"/>
+  <text x="742" y="358" font-size="12" font-weight="600" fill="#323130">TDS 1433</text>
+  <text x="742" y="374" font-size="11" fill="#605E5C">TLS · EF Core</text>
+
+  <!-- API -> Application Insights -->
+  <line x1="540" y1="472" x2="540" y2="538" stroke="#8661C5" stroke-width="2" marker-end="url(#seta-deploy)"/>
+  <text x="550" y="510" font-size="12" font-weight="600" fill="#8661C5">telemetria (OpenTelemetry)</text>
+
+  <!-- Application Insights -> Log Analytics -->
+  <line x1="730" y1="600" x2="808" y2="600" stroke="#8661C5" stroke-width="2" marker-end="url(#seta-deploy)"/>
+
+  <!-- Desenvolvedor -> recursos e deploy -->
+  <path d="M240,560 C285,560 295,440 328,440" fill="none" stroke="#8661C5" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#seta-deploy)"/>
+  <text x="140" y="492" font-size="12" font-weight="600" fill="#8661C5">az webapp deploy</text>
+  <text x="140" y="507" font-size="11" fill="#605E5C">pacotes zip (API e front)</text>
+
+  <path d="M240,610 C280,610 290,676 306,676" fill="none" stroke="#8661C5" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#seta-deploy)"/>
+  <text x="40" y="664" font-size="12" font-weight="600" fill="#8661C5">az CLI</text>
+  <text x="40" y="679" font-size="11" fill="#605E5C">cria os recursos</text>
+</svg>
