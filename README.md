@@ -101,10 +101,7 @@ DindinBuddies/
 
 Três tabelas com relacionamento: um **Cliente** tem várias **Contas**; uma **Conta** tem várias **Transações**. Uma transferência é um único registro, com a conta de origem (`ContaId`) e a de destino (`ContaDestinoId`).
 
-```
-Clientes 1 ──── N Contas 1 ──── N Transacoes   (ContaId: conta da movimentação)
-                       1 ──── N Transacoes   (ContaDestinoId: só em transferências)
-```
+![Desenho Diagrama Relacionamento](docs/Tabela_relacionamento.jpeg)
 
 | Tabela | Colunas |
 | --- | --- |
