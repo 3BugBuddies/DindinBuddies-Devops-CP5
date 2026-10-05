@@ -4,7 +4,7 @@ Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abe
 
 
 
-| **Vídeo da solução** | link_do_vídeo |
+| **Vídeo da solução** | (Em breve) |
 | --- | --- |
 
 ---
