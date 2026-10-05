@@ -1,11 +1,19 @@
-# DindinBuddies
+# DindinBuddies - CP5 - DevOps Tools & Cloud Computing
 
-Banco digital de exemplo do projeto **Dimdim** (DevOps Tools & Cloud Computing): cadastro de clientes, abertura de contas e movimentações (depósito, saque e transferência), com extrato por período.
+Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abertura de contas e Movimentações (depósito, saque e transferência), com Extrato por período.
+
+**Grupo 3BugBuddies**
+
+| Nome | RM |
+| --- | --- |
+| Felipe Ishii | 565339 |
+| Gabriel Nogueira Peixoto | 563925 |
+| Giovanna Neri dos Santos | 566154 |
+| Mariana Inoue | 565834 |
 
 | | |
 | --- | --- |
-| **Vídeo da solução** | _link do vídeo (a preencher)_ |
-| **Grupo** | 3BugBuddies ([integrantes](#12-integrantes)) |
+| **Vídeo da solução** | link_do_vídeo |
 
 ## Sumário
 
@@ -18,9 +26,7 @@ Banco digital de exemplo do projeto **Dimdim** (DevOps Tools & Cloud Computing):
 7. [How to: criar o ambiente na Azure](#7-how-to-criar-o-ambiente-na-azure)
 8. [Acessar o front, a API e o Swagger](#8-acessar-o-front-a-api-e-o-swagger)
 9. [Monitoramento com Application Insights](#9-monitoramento-com-application-insights)
-10. [Testes e evidências (roteiro do vídeo)](#10-testes-e-evidências-roteiro-do-vídeo)
-11. [Remover tudo](#11-remover-tudo)
-12. [Integrantes](#12-integrantes)
+10. [Remover tudo](#11-remover-tudo)
 
 ---
 
@@ -560,10 +566,6 @@ Para **republicar** nos mesmos recursos (por exemplo, depois de mudar o código)
 
 Os campos também podem ser passados como variáveis de ambiente, que têm prioridade sobre o arquivo (ex.: `SUFIXO=abc12 ./scripts/deploy.sh`). Sem o `deploy.env`, guarde o sufixo mostrado no fim da execução e use-o assim para atualizar o mesmo ambiente.
 
-### Custos
-
-Enquanto os recursos existirem, o custo aproximado é de US$ 20 por mês (App Service B1 e SQL Basic, mais o uso do Log Analytics). Remova o ambiente quando não precisar mais dele ([seção 11](#11-remover-tudo)).
-
 ---
 
 ## 8. Acessar o front, a API e o Swagger
@@ -623,23 +625,7 @@ Os dados levam de 1 a 3 minutos para aparecer (exceto no Live metrics, que é im
 
 ---
 
-## 10. Testes e evidências (roteiro do vídeo)
-
-Roteiro para demonstrar a solução na Azure, com a persistência no banco após **cada operação do CRUD, em cada tabela**:
-
-1. **Criação dos recursos e deploy:** executar `./scripts/deploy.sh` e mostrar, no portal, o Resource Group com o Azure SQL, o App Service Plan, os 2 Web Apps, o Application Insights e o Log Analytics.
-2. **Abrir o banco:** portal → **SQL databases → DindinBuddies → Query editor**, entrar com `dindinadmin` e manter aberto o [`scripts/consultas.sql`](scripts/consultas.sql). Se for pedido, libere o seu IP no firewall pelo botão do próprio Query editor.
-3. **Clientes:** pelo front (ou Postman/Swagger), cadastrar, editar e excluir um cliente; após cada operação, rodar a consulta **1) Clientes** e mostrar o resultado.
-4. **Contas:** abrir duas contas, alterar o tipo de uma, encerrar e excluir uma conta sem movimentações; após cada operação, rodar a consulta **2) Contas**.
-5. **Transações:** depositar, sacar, transferir, editar a descrição de uma transação e estornar (excluir) uma; após cada operação, rodar as consultas **3) Transações** e **2) Contas** (saldos) e, no fim, a **4) Conferência** de saldos.
-6. **Regras de negócio:** mostrar um saque sem saldo (422) e a exclusão de um cliente com contas (422).
-7. **Monitoramento:** abrir o Application Insights (Live metrics, Application map com a dependência SQL, Performance) e as métricas do banco.
-
-Todas as operações também podem ser executadas em sequência pela coleção do Postman ([seção 4](#4-api-endpoints-e-json-das-operações)), que confere o status HTTP de cada resposta.
-
----
-
-## 11. Remover tudo
+## 10. Remover tudo
 
 Todos os recursos ficam no mesmo Resource Group. Para remover tudo (e parar a cobrança):
 
@@ -657,12 +643,6 @@ Quando o comando retornar `false`, o ambiente foi removido.
 
 ---
 
-## 12. Integrantes
+## 11. Integrantes
 
-**Grupo 3BugBuddies**
 
-| Nome | RM |
-| --- | --- |
-| _a preencher_ | _a preencher_ |
-| _a preencher_ | _a preencher_ |
-| _a preencher_ | _a preencher_ |
