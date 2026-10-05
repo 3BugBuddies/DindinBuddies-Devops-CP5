@@ -487,3 +487,6 @@ $RECYCLE.BIN/
 # Front-end
 node_modules/
 dist/
+
+# Configuração pessoal do deploy (contém a senha do SQL)
+scripts/deploy.env

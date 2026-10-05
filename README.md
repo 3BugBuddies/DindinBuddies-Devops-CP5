@@ -75,6 +75,7 @@ DindinBuddies/
 ├─ web/                                  front React + Vite + TypeScript
 ├─ scripts/
 │  ├─ deploy.sh                          Azure CLI: cria o ambiente e faz o deploy
+│  ├─ deploy.env.example                 configuração do deploy (copie para deploy.env)
 │  ├─ ddl.sql                            DDL das tabelas
 │  ├─ consultas.sql                      consultas para conferir os dados no banco
 │  └─ DindinBuddies.postman_collection.json   coleção com todas as operações
@@ -508,15 +509,32 @@ O script [`scripts/deploy.sh`](scripts/deploy.sh) cria todos os recursos com o *
    az account set --subscription "<nome ou id da assinatura>"
    ```
 
-3. Rode o script na raiz do repositório:
+3. Crie o seu arquivo de configuração a partir do modelo e preencha os valores:
+
+   ```bash
+   cp scripts/deploy.env.example scripts/deploy.env
+   ```
+
+   O `scripts/deploy.env` fica **fora do Git** (ele pode conter a senha do SQL). Todos os campos são opcionais; o que ficar vazio usa o padrão:
+
+   | Campo | Padrão | Uso |
+   | --- | --- | --- |
+   | `ASSINATURA` | assinatura atual do Azure CLI | Nome ou id da assinatura (`az account list -o table`) |
+   | `REGIAO` | `chilecentral` | Região dos recursos |
+   | `GRUPO` | `rg-dindinbuddies` | Nome do Resource Group |
+   | `SUFIXO` | gerado e gravado no arquivo | Sufixo dos nomes globais (servidor SQL e Web Apps) |
+   | `SQL_ADMIN_USER` | `dindinadmin` | Usuário administrador do Azure SQL |
+   | `SQL_ADMIN_PASSWORD` | pedida na execução | Senha do administrador (8+ caracteres, com 3 destes grupos: maiúsculas, minúsculas, números e símbolos; sem `;` nem aspas) |
+
+   > Sem o `deploy.env`, o script também funciona: usa os padrões e pede a senha na hora.
+
+4. Rode o script na raiz do repositório:
 
    ```bash
    ./scripts/deploy.sh
    ```
 
    Se der "permissão negada", use `bash scripts/deploy.sh`.
-
-4. Informe a **senha do administrador do SQL** quando ela for pedida. Para não digitar, defina antes a variável `SQL_ADMIN_PASSWORD`. A senha nunca é gravada no repositório.
 
 5. Aguarde. A primeira execução leva de 10 a 20 minutos. O script mostra o andamento:
 
@@ -532,19 +550,15 @@ O script [`scripts/deploy.sh`](scripts/deploy.sh) cria todos os recursos com o *
    | 8/9 Deploy do front | `npm run build` com a URL da API, zip e `az webapp deploy` |
    | 9/9 Saída | Espera a API responder e imprime as URLs |
 
-### Opções
+### Atualizar o ambiente
 
-| Variável | Padrão | Uso |
-| --- | --- | --- |
-| `REGIAO` | `chilecentral` | Região da Azure |
-| `SQL_ADMIN_PASSWORD` | (pedida na execução) | Senha do administrador do SQL (`dindinadmin`) |
-| `SUFIXO` | aleatório | Sufixo dos nomes globais (SQL e Web Apps) |
-
-Os nomes globais ganham um sufixo aleatório, mostrado no fim. Para **atualizar** o mesmo ambiente (por exemplo, publicar uma nova versão do código), rode de novo informando o sufixo:
+Para **republicar** nos mesmos recursos (por exemplo, depois de mudar o código), basta rodar o script de novo: o sufixo gerado na primeira execução fica gravado no `scripts/deploy.env`.
 
 ```bash
-SUFIXO=<sufixo> ./scripts/deploy.sh
+./scripts/deploy.sh
 ```
+
+Os campos também podem ser passados como variáveis de ambiente, que têm prioridade sobre o arquivo (ex.: `SUFIXO=abc12 ./scripts/deploy.sh`). Sem o `deploy.env`, guarde o sufixo mostrado no fim da execução e use-o assim para atualizar o mesmo ambiente.
 
 ### Custos
 

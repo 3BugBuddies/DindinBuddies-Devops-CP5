@@ -7,14 +7,15 @@
 # Pré-requisitos: Azure CLI logado (`az login`), .NET SDK 10 e Node.js com npm.
 # Docker não é necessário (ele só é usado para rodar o projeto localmente).
 #
-# Uso (a partir da raiz do repositório):
+# Configuração (a partir da raiz do repositório):
+#   cp scripts/deploy.env.example scripts/deploy.env    # e preencha os seus valores
 #   ./scripts/deploy.sh
 #
-# Variáveis de ambiente opcionais:
-#   SQL_ADMIN_PASSWORD  senha do administrador do SQL (se ausente, é pedida na execução)
-#   SUFIXO              sufixo dos nomes globais; informe o de uma execução anterior para
-#                       atualizar os mesmos recursos (e republicar o código) em vez de criar novos
-#   REGIAO              região da Azure (padrão: chilecentral)
+# O scripts/deploy.env fica fora do Git. Todos os campos são opcionais: sem o arquivo,
+# o script usa a assinatura atual do Azure CLI, a região chilecentral, um sufixo
+# aleatório e pede a senha do SQL na execução. Variáveis de ambiente com os mesmos
+# nomes têm prioridade sobre o arquivo (ex.: SUFIXO=abc12 ./scripts/deploy.sh).
+# Outro arquivo de configuração pode ser indicado com CONFIG=<caminho>.
 
 set -euo pipefail
 
@@ -22,18 +23,47 @@ set -euo pipefail
 # virem caminhos do Windows. Caminhos de arquivos locais são convertidos com `nativo`.
 export MSYS_NO_PATHCONV=1
 
-# ---------------------------------------------------------------------------
-# Configuração
-# ---------------------------------------------------------------------------
-REGIAO="${REGIAO:-chilecentral}"
-PREFIXO="dindinbuddies"
-# 5 caracteres hexadecimais aleatórios (o od lê só 3 bytes, sem quebrar o pipefail).
-SUFIXO="${SUFIXO:-$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n' | cut -c1-5)}"
+RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-GRUPO="rg-${PREFIXO}"
+# ---------------------------------------------------------------------------
+# Configuração: variáveis de ambiente > scripts/deploy.env > padrões
+# ---------------------------------------------------------------------------
+CAMPOS_CONFIG="ASSINATURA REGIAO GRUPO SUFIXO SQL_ADMIN_USER SQL_ADMIN_PASSWORD"
+ARQUIVO_CONFIG="${CONFIG:-${RAIZ}/scripts/deploy.env}"
+
+if [[ -f "$ARQUIVO_CONFIG" ]]; then
+  # Guarda o que veio do ambiente, carrega o arquivo e devolve a prioridade ao ambiente.
+  for campo in $CAMPOS_CONFIG; do printf -v "AMBIENTE_${campo}" '%s' "${!campo-}"; done
+  # tr remove o "\r" caso o arquivo tenha sido salvo com fim de linha do Windows.
+  eval "$(tr -d '\r' < "$ARQUIVO_CONFIG")"
+  for campo in $CAMPOS_CONFIG; do
+    valor_ambiente="AMBIENTE_${campo}"
+    if [[ -n "${!valor_ambiente}" ]]; then printf -v "$campo" '%s' "${!valor_ambiente}"; fi
+  done
+fi
+
+ASSINATURA="${ASSINATURA:-}"
+REGIAO="${REGIAO:-chilecentral}"
+GRUPO="${GRUPO:-rg-dindinbuddies}"
+SQL_ADMIN_USER="${SQL_ADMIN_USER:-dindinadmin}"
+SQL_ADMIN_PASSWORD="${SQL_ADMIN_PASSWORD:-}"
+SUFIXO_GERADO=false
+if [[ -z "${SUFIXO:-}" ]]; then
+  # 5 caracteres hexadecimais aleatórios (o od lê só 3 bytes, sem quebrar o pipefail).
+  SUFIXO="$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n' | cut -c1-5)"
+  SUFIXO_GERADO=true
+fi
+
+# Como repetir a execução sobre os mesmos recursos (usado nas mensagens de erro e no final).
+if [[ -f "$ARQUIVO_CONFIG" ]]; then
+  COMO_REPETIR="./scripts/deploy.sh (o sufixo fica salvo no deploy.env)"
+else
+  COMO_REPETIR="SUFIXO=${SUFIXO} ./scripts/deploy.sh"
+fi
+
+PREFIXO="dindinbuddies"
 SQL_SERVIDOR="sql-${PREFIXO}-${SUFIXO}"
 SQL_BANCO="DindinBuddies"
-SQL_ADMIN="dindinadmin"
 LOG_WORKSPACE="log-${PREFIXO}"
 APP_INSIGHTS="appi-${PREFIXO}"
 PLANO="asp-${PREFIXO}"
@@ -46,7 +76,6 @@ STARTUP_API="dotnet DindinBuddies.Api.dll"
 # devolve o index.html para as rotas do React Router.
 STARTUP_WEB="pm2 serve /home/site/wwwroot --no-daemon --spa"
 
-RAIZ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMP_DEPLOY="$(mktemp -d)"
 trap 'rm -rf "$TEMP_DEPLOY"' EXIT
 
@@ -103,7 +132,7 @@ PY
   fi
 }
 
-trap 'falha "O deploy parou na linha $LINENO. Veja a mensagem de erro acima. Para continuar de onde parou, rode de novo com SUFIXO=${SUFIXO}."' ERR
+trap 'falha "O deploy parou na linha $LINENO. Veja a mensagem de erro acima. Para continuar de onde parou, rode: ${COMO_REPETIR}"' ERR
 
 # ---------------------------------------------------------------------------
 # 1. Verificações iniciais
@@ -118,16 +147,46 @@ command -v npm >/dev/null 2>&1 || falha "Node.js/npm não encontrado. Instale o 
 command -v zip >/dev/null 2>&1 || [[ -n "$PYTHON" ]] || falha "Instale o comando zip ou o Python 3 (usados para gerar os pacotes de deploy)."
 ok ".NET SDK, Node.js e ferramenta de zip encontrados"
 
+if [[ -f "$ARQUIVO_CONFIG" ]]; then
+  ok "Configuração lida de ${ARQUIVO_CONFIG}"
+else
+  info "Sem scripts/deploy.env: usando os valores padrão (veja scripts/deploy.env.example)."
+fi
+
 az account show -o none 2>/dev/null || falha "Azure CLI não está logado. Rode 'az login' e tente de novo."
-ASSINATURA="$(azv account show --query name)"
-ok "Assinatura: ${ASSINATURA}"
+if [[ -n "$ASSINATURA" ]]; then
+  az account set --subscription "$ASSINATURA" --only-show-errors \
+    || falha "Assinatura '${ASSINATURA}' não encontrada. Confira o valor de ASSINATURA (az account list -o table)."
+fi
+ok "Assinatura: $(azv account show --query name)"
 
 [[ "$(azv account list-locations --query "[?name=='${REGIAO}'] | length(@)")" == "1" ]] \
-  || falha "A região '${REGIAO}' não está disponível nesta assinatura. Defina outra com REGIAO=<nome>."
+  || falha "A região '${REGIAO}' não está disponível nesta assinatura. Ajuste REGIAO no scripts/deploy.env."
 ok "Região: ${REGIAO}"
 
+[[ "$GRUPO" =~ ^[A-Za-z0-9._()-]{1,90}$ ]] || falha "GRUPO inválido: use letras, números, '.', '_', '-' ou parênteses."
+ok "Resource Group: ${GRUPO}"
+
 [[ "$SUFIXO" =~ ^[a-z0-9]{3,10}$ ]] || falha "SUFIXO deve ter de 3 a 10 letras minúsculas ou números."
-ok "Sufixo dos nomes: ${SUFIXO}"
+if [[ "$SUFIXO_GERADO" == true && -f "$ARQUIVO_CONFIG" ]]; then
+  # Grava o sufixo gerado no deploy.env: as próximas execuções atualizam os mesmos recursos.
+  if grep -q '^SUFIXO=' "$ARQUIVO_CONFIG"; then
+    sed "s/^SUFIXO=.*/SUFIXO=\"${SUFIXO}\"/" "$ARQUIVO_CONFIG" > "${ARQUIVO_CONFIG}.tmp"
+    mv "${ARQUIVO_CONFIG}.tmp" "$ARQUIVO_CONFIG"
+  else
+    printf '\nSUFIXO="%s"\n' "$SUFIXO" >> "$ARQUIVO_CONFIG"
+  fi
+  ok "Sufixo dos nomes: ${SUFIXO} (gerado e gravado em ${ARQUIVO_CONFIG})"
+else
+  ok "Sufixo dos nomes: ${SUFIXO}"
+fi
+
+[[ "$SQL_ADMIN_USER" =~ ^[A-Za-z][A-Za-z0-9_]{0,127}$ ]] \
+  || falha "SQL_ADMIN_USER inválido: comece com letra e use só letras, números e '_'."
+case "$(printf '%s' "$SQL_ADMIN_USER" | tr '[:upper:]' '[:lower:]')" in
+  admin|administrator|sa|root|dbmanager|loginmanager|guest|public|dbo)
+    falha "SQL_ADMIN_USER '${SQL_ADMIN_USER}' é reservado pela Azure. Escolha outro nome." ;;
+esac
 
 for provedor in Microsoft.Web Microsoft.Sql Microsoft.OperationalInsights Microsoft.Insights; do
   if [[ "$(azv provider show -n "$provedor" --query registrationState)" != "Registered" ]]; then
@@ -141,7 +200,7 @@ az extension add --name application-insights --upgrade --only-show-errors -o non
 ok "Extensão application-insights do Azure CLI pronta"
 
 if [[ -z "${SQL_ADMIN_PASSWORD:-}" ]]; then
-  read -r -s -p "    Senha do administrador do SQL (${SQL_ADMIN}): " SQL_ADMIN_PASSWORD
+  read -r -s -p "    Senha do administrador do SQL (${SQL_ADMIN_USER}): " SQL_ADMIN_PASSWORD
   echo
 fi
 categorias=0
@@ -172,7 +231,7 @@ if existe sql server show -g "$GRUPO" -n "$SQL_SERVIDOR"; then
 else
   info "Criando o servidor ${SQL_SERVIDOR} (alguns minutos)..."
   az sql server create -g "$GRUPO" -n "$SQL_SERVIDOR" -l "$REGIAO" \
-    --admin-user "$SQL_ADMIN" --admin-password "$SQL_ADMIN_PASSWORD" --only-show-errors -o none
+    --admin-user "$SQL_ADMIN_USER" --admin-password "$SQL_ADMIN_PASSWORD" --only-show-errors -o none
 fi
 ok "Servidor ${SQL_SERVIDOR}"
 
@@ -188,7 +247,7 @@ az sql server firewall-rule create -g "$GRUPO" -s "$SQL_SERVIDOR" -n AllowAzureS
 ok "Firewall liberando os serviços da Azure"
 
 SQL_HOST="$(azv sql server show -g "$GRUPO" -n "$SQL_SERVIDOR" --query fullyQualifiedDomainName)"
-CONNECTION_STRING="Server=tcp:${SQL_HOST},1433;Database=${SQL_BANCO};User ID=${SQL_ADMIN};Password=${SQL_ADMIN_PASSWORD};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30"
+CONNECTION_STRING="Server=tcp:${SQL_HOST},1433;Database=${SQL_BANCO};User ID=${SQL_ADMIN_USER};Password=${SQL_ADMIN_PASSWORD};Encrypt=True;TrustServerCertificate=False;Connection Timeout=30"
 
 # ---------------------------------------------------------------------------
 # 4. Monitoramento
@@ -310,5 +369,5 @@ printf '  Front:    %s\n' "$WEB_URL"
 printf '  API:      %s\n' "$API_URL"
 printf '  Swagger:  %s/swagger\n\n' "$API_URL"
 printf '  Resource Group: %s   Sufixo: %s\n' "$GRUPO" "$SUFIXO"
-printf '  Para republicar nestes recursos: SUFIXO=%s ./scripts/deploy.sh\n' "$SUFIXO"
+printf '  Para republicar nestes recursos: %s\n' "$COMO_REPETIR"
 printf '  Para remover tudo:               az group delete -n %s --yes --no-wait\n\n' "$GRUPO"
