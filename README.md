@@ -11,12 +11,12 @@ Banco digital de exemplo do projeto **DimdimBuddies**: Cadastro de clientes, Abe
 
 ## Integrantes do Grupo
 
-| Nome | RM | Turma |
-|------|-----|-------|
-| Felipe Yuiti Ishii | 565339 | 2TDS Fevereiro |
-| Gabriel Nogueira Peixoto | 563925 | 2TDS Fevereiro |
-| Giovanna Neri dos Santos | 566154 | 2TDS Fevereiro |
-| Mariana Inoue | 565834 | 2TDS Fevereiro |
+| Nome | RM |
+|------|-----|
+| Felipe Yuiti Ishii | 565339 |
+| Gabriel Nogueira Peixoto | 563925 |
+| Giovanna Neri dos Santos | 566154 |
+| Mariana Inoue | 565834 |
 
 
 
