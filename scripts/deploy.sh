@@ -12,7 +12,7 @@
 #   ./scripts/deploy.sh
 #
 # O scripts/deploy.env fica fora do Git. Todos os campos são opcionais: sem o arquivo,
-# o script usa a assinatura atual do Azure CLI, a região chilecentral, um sufixo
+# o script usa a assinatura atual do Azure CLI, a região mexicocentral, um sufixo
 # aleatório e pede a senha do SQL na execução. Variáveis de ambiente com os mesmos
 # nomes têm prioridade sobre o arquivo (ex.: SUFIXO=abc12 ./scripts/deploy.sh).
 # Outro arquivo de configuração pode ser indicado com CONFIG=<caminho>.
@@ -43,7 +43,7 @@ if [[ -f "$ARQUIVO_CONFIG" ]]; then
 fi
 
 ASSINATURA="${ASSINATURA:-}"
-REGIAO="${REGIAO:-chilecentral}"
+REGIAO="${REGIAO:-mexicocentral}"
 GRUPO="${GRUPO:-rg-dindinbuddies}"
 SQL_ADMIN_USER="${SQL_ADMIN_USER:-dindinadmin}"
 SQL_ADMIN_PASSWORD="${SQL_ADMIN_PASSWORD:-}"

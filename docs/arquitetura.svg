@@ -41,7 +41,7 @@
 
   <rect x="308" y="128" width="844" height="556" rx="10" fill="#F5FAFF" stroke="#0078D4" stroke-width="1.5"/>
   <text x="326" y="152" font-size="14" font-weight="700" fill="#004E8C">Resource Group: rg-dindinbuddies</text>
-  <text x="590" y="152" font-size="13" fill="#605E5C">· região chilecentral</text>
+  <text x="590" y="152" font-size="13" fill="#605E5C">· região mexicocentral</text>
 
   <!-- App Service Plan -->
   <rect x="330" y="168" width="420" height="320" rx="10" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>

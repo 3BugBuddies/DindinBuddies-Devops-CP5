@@ -64,7 +64,7 @@ O front e a API são publicados em Web Apps separados. A API persiste os dados n
 
 | Recurso Azure | Nome | Configuração |
 | --- | --- | --- |
-| Resource Group | `rg-dindinbuddies` | Região `chilecentral` |
+| Resource Group | `rg-dindinbuddies` | Região `mexicocentral` |
 | App Service Plan | `asp-dindinbuddies` | B1 Linux, Always On |
 | Web App (API) | `app-dindinbuddies-api-<sufixo>` | Runtime `DOTNETCORE:10.0`, só HTTPS; connection string, Application Insights e CORS configurados pelo script |
 | Web App (front) | `app-dindinbuddies-web-<sufixo>` | Runtime `NODE:24-lts`, só HTTPS; serve o build do React com `pm2 serve --spa` |
@@ -543,7 +543,7 @@ O script [`scripts/deploy.sh`](scripts/deploy.sh) cria todos os recursos com o *
    | Campo | Padrão | Uso |
    | --- | --- | --- |
    | `ASSINATURA` | assinatura atual do Azure CLI | Nome ou id da assinatura (`az account list -o table`) |
-   | `REGIAO` | `chilecentral` | Região dos recursos |
+   | `REGIAO` | `mexicocentral` | Região dos recursos |
    | `GRUPO` | `rg-dindinbuddies` | Nome do Resource Group |
    | `SUFIXO` | gerado e gravado no arquivo | Sufixo dos nomes globais (servidor SQL e Web Apps) |
    | `SQL_ADMIN_USER` | `dindinadmin` | Usuário administrador do Azure SQL |
